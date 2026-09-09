@@ -50,3 +50,43 @@ Food articles are partially carved out to FSSAI for some sub-rules.
 ---
 
 ## Feature specs will be appended below this line by the Spec Agent.
+
+### Feature: Core Compliance Pipeline (scan → OCR → field structuring → compliance matrix → rule check → risk scoring → mismatch check → case creation)
+
+**Purpose:** Accept a photographed product label, extract the nine mandatory Legal Metrology declaration fields, check each against the Packaged Commodities Rules, 2011, score the scan's risk level, flag manufacturer-vs-listing mismatches, and persist the result as a case an inspector or HQ can review.
+
+**Inputs:**
+- Multipart image upload (`jpg`/`jpeg`/`png`/`webp`, ≤15MB)
+- `is_imported: bool` (form field) — gates the Country of Origin rule
+- `interface: "consumer" | "vendor" | "inspector"` (form field) — controls response detail, not pipeline behavior
+- Authenticated user context (JWT: `sub`, `role`, `state_region`, and for inspectors `government_id`, `designation`, `department_name`)
+- Optional listed/declared values from an online listing (`listed_mrp`, `listed_net_quantity`) for the mismatch check — mocked/manual input this cycle, no live marketplace scraping
+
+**Outputs:**
+- `Scan` record: raw OCR text, structured fields (each with value, confidence, source bounding box), font-height findings for the two size-relevant fields (net quantity, MRP numerals)
+- `ComplianceResult` per field: status (COMPLIANT / NON_COMPLIANT / NEEDS_REVIEW), matched rule reference + act section + penalty clause + finding text
+- `RiskScore`: 0–100, computed from violation count/severity + confidence of extracted fields + (if any) prior violation count for the same manufacturer name on file
+- `MismatchFlags`: list of fields where the on-label value and the supplied listed value disagree beyond a tolerance (numeric quantity/price fields: exact after normalization; text fields: case-insensitive exact match — no fuzzy/semantic matching this cycle)
+- `Case` record created automatically when `overall_status != COMPLIANT`, linking the scan, its violations, and (if inspector-initiated) the filing officer
+
+**Endpoints (backend):**
+- `POST /api/v1/scans` — multipart upload, runs the full pipeline synchronously (OCR is wrapped in `run_in_threadpool`), returns `Scan` + `ComplianceResult[]` + `RiskScore` + `MismatchFlags`
+- `GET /api/v1/scans/{scan_id}` — retrieve a completed scan (regex-validated `scan_id`, path-safety checked)
+- `GET /api/v1/scans` — list scans visible to the caller's role
+- `POST /api/v1/scans/{scan_id}/override` — inspector-only manual field correction, re-runs the compliance matrix and risk score, preserves the original AI-extracted value
+- `GET /api/v1/cases` / `GET /api/v1/cases/{case_id}` — list/retrieve auto-created cases
+
+**Data model changes (new tables):**
+- `scans` (id, user_id, interface, image_path, is_imported, status, ocr_raw_text, structured_fields JSON, font_analysis JSON, compliance_summary JSON, compliance_results JSON, risk_score, mismatch_flags JSON, officer_overrides JSON, state_region, created_at)
+- `cases` (id, scan_id, status, overall_status, risk_score, manufacturer_name, opened_at, closed_at)
+- `manufacturer_violation_counts` (manufacturer_name_normalized, violation_count) — minimal relational stand-in for repeat-offender tracking this cycle; superseded by the `seller_registry` Chroma collection in Cycle 2, per `vector_database.md`
+
+**Out of scope (explicitly deferred):**
+- Semantic/vector-based rule matching and seller/entity resolution (Cycle 2, per build order — this cycle's rule check is the existing deterministic `rules_engine.py` logic only)
+- Ask METRA endpoint (depends on the `rules_corpus` Chroma collection built in Cycle 2)
+- Live online-listing scraping for the mismatch check — listed values are supplied manually/mocked this cycle
+- UI for any of this (no Figma/v0 source provided yet)
+- Email notifications on case creation (separate feature, Notification Agent, Cycle 5)
+- Consumer health report (separate feature, Consumer Module Agent, Cycle 6)
+- Deployment configuration
+
