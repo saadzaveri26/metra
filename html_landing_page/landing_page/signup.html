@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign up | METRA</title>
+  <style>
+    :root {
+      --blue: #0867c9;
+      --blue-dark: #063d78;
+      --blue-light: #eaf4ff;
+      --ink: #10243e;
+      --muted: #62738a;
+      --bg: #f7faff;
+      --white: #fff;
+      --line: #dce7f2;
+      --green: #159a68;
+      --green-light: #e5f8ef;
+      --amber: #b9781a;
+      --amber-light: #fff3df;
+      --brass: #9a6b12;
+      --brass-light: #faf3e4;
+      --navy: #0a2038;
+      --navy-light: #e9edf3;
+      --shadow: 0 18px 50px rgba(21, 62, 105, .10);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+    html { scroll-behavior: smooth }
+
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+
+    a { text-decoration: none; color: inherit }
+
+    .container { width: min(1160px, 92%); margin: auto }
+
+    header {
+      background: rgba(255, 255, 255, .94);
+      border-bottom: 1px solid rgba(220, 231, 242, .9)
+    }
+
+    nav {
+      height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px }
+
+    .brand-mark {
+      width: 42px; height: 42px; border-radius: 11px;
+      overflow: hidden; display: grid; place-items: center;
+      box-shadow: 0 7px 18px rgba(8, 103, 201, .25)
+    }
+
+    .brand-mark > img { width: 100%; height: 100%; object-fit: cover }
+
+    .brand strong { font-size: 20px; letter-spacing: .08em }
+
+    .brand span {
+      display: block; color: var(--muted); font-size: 10px;
+      margin-top: -2px; letter-spacing: .03em
+    }
+
+    .back-link {
+      font-size: 13px; font-weight: 700; color: var(--blue);
+      display: flex; align-items: center; gap: 6px
+    }
+
+    main {
+      padding: 64px 0 90px;
+    }
+
+    .page-head {
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto 48px;
+    }
+
+    .page-head .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #eaf4ff;
+      color: var(--blue);
+      border: 1px solid #cfe5fb;
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .03em;
+      margin-bottom: 18px;
+    }
+
+    .page-head h1 {
+      font-size: clamp(30px, 4vw, 40px);
+      letter-spacing: -.03em;
+      margin-bottom: 14px;
+    }
+
+    .page-head p {
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .role-flex {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      justify-content: center;
+    }
+
+    .role-block {
+      flex: 1 1 240px;
+      max-width: 270px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 34px 26px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 14px;
+      transition: .2s;
+    }
+
+    .role-block:hover {
+      transform: translateY(-4px);
+      border-color: var(--blue);
+    }
+
+    .role-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .role-block h3 {
+      font-size: 19px;
+      letter-spacing: -.01em;
+    }
+
+    .role-block p {
+      font-size: 13.5px;
+      color: var(--muted);
+      flex-grow: 1;
+    }
+
+    .role-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    /* Consumer */
+    .role-consumer .role-icon { background: var(--green-light); color: var(--green) }
+    .role-consumer .role-cta { color: var(--green) }
+
+    /* Vendor */
+    .role-vendor .role-icon { background: var(--amber-light); color: var(--amber) }
+    .role-vendor .role-cta { color: var(--amber) }
+
+    /* Inspector */
+    .role-inspector .role-icon { background: var(--brass-light); color: var(--brass) }
+    .role-inspector .role-cta { color: var(--brass) }
+    .role-inspector {
+      border: 1px solid #e6d8b8;
+      background: linear-gradient(180deg, #fffdf8, #fff);
+    }
+
+    /* HQ */
+    .role-hq .role-icon { background: var(--navy-light); color: var(--navy) }
+    .role-hq .role-cta { color: var(--navy) }
+
+    .signin-note {
+      text-align: center;
+      margin-top: 44px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .signin-note a { color: var(--blue); font-weight: 700 }
+
+    @media (max-width: 640px) {
+      .role-block { max-width: 100%; flex: 1 1 100%; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="container">
+      <nav>
+        <a class="brand" href="metra_landing_page.html">
+          <div class="brand-mark"><img src="METRA-closeup.png" alt="METRA"></div>
+          <div><strong>METRA</strong><span>METROLOGY ENFORCEMENT AND TRACEABILITY REGULATORY ASSISTANT</span></div>
+        </a>
+        <a class="back-link" href="metra_landing_page.html">&larr; Back to home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="page-head">
+        <div class="eyebrow"><span>Create an account</span></div>
+        <h1>Sign up for METRA</h1>
+        <p>Choose the role that matches how you'll use METRA. Each one leads to a short sign-up form
+          built for that role.</p>
+      </div>
+
+      <div class="role-flex">
+        <a class="role-block role-consumer" href="signup-consumer.html">
+          <div class="role-icon">⌂</div>
+          <h3>Consumer</h3>
+          <p>Scan a label for a quick read on compliance, file a complaint, and find your state's
+            Legal Metrology office.</p>
+          <span class="role-cta">Sign up as Consumer &nbsp;→</span>
+        </a>
+
+        <a class="role-block role-vendor" href="signup-vendor.html">
+          <div class="role-icon">▣</div>
+          <h3>Vendor</h3>
+          <p>Run a pre-market self-check on your packaging and ask ASK METRA about a requirement
+            before it becomes a finding.</p>
+          <span class="role-cta">Sign up as Vendor &nbsp;→</span>
+        </a>
+
+        <a class="role-block role-inspector" href="signup-inspector.html">
+          <div class="role-icon">◆</div>
+          <h3>Inspector</h3>
+          <p>Scan packages, check declarations, review a company's history, and file a
+            pre-filled report. Restricted to verified officers.</p>
+          <span class="role-cta">Sign up as Inspector &nbsp;→</span>
+        </a>
+
+        <a class="role-block role-hq" href="signup-hq.html">
+          <div class="role-icon">◈</div>
+          <h3>Legal Metrology HQ</h3>
+          <p>A state-wide view of every inspection, every report, and who filed it, organised
+            the way authority already flows.</p>
+          <span class="role-cta">Sign up as HQ &nbsp;→</span>
+        </a>
+      </div>
+
+      <p class="signin-note">Already have an account? <a href="login.html">Sign in to METRA</a></p>
+    </div>
+  </main>
+
+</body>
+
+</html>

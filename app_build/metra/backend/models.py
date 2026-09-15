@@ -108,6 +108,24 @@ class Case(Base):
     closed_at = Column(DateTime, nullable=True)
 
     scan = relationship("Scan", back_populates="case")
+    responses = relationship("CaseResponse", back_populates="case", cascade="all, delete-orphan", order_by="CaseResponse.created_at.desc()")
+
+
+class CaseResponse(Base):
+    """
+    Vendor-submitted response / clarification to an enforcement case notice.
+    Stored as an append-only linked record and never overwrites the original violation record.
+    """
+    __tablename__ = "case_responses"
+
+    id = Column(String, primary_key=True, default=gen_id)
+    case_id = Column(String, ForeignKey("cases.id"), nullable=False, index=True)
+    vendor_id = Column(String, nullable=False, index=True)
+    clarification_text = Column(Text, nullable=False)
+    evidence_image_path = Column(String, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    case = relationship("Case", back_populates="responses")
 
 
 class ManufacturerViolationCount(Base):
@@ -122,3 +140,68 @@ class ManufacturerViolationCount(Base):
     manufacturer_name_normalized = Column(String, primary_key=True)
     violation_count = Column(Integer, default=0)
     last_violation_at = Column(DateTime, default=utcnow)
+
+
+class ConsumerReport(Base):
+    """
+    Citizen-submitted complaints / packaging irregularity reports.
+    STATUTORY GROUND RULE: Stored as 'unverified_lead' for officer triage,
+    NEVER auto-created as a confirmed enforcement case.
+    """
+    __tablename__ = "consumer_reports"
+
+    id = Column(String, primary_key=True, default=gen_id)
+    user_id = Column(String, nullable=True, index=True)  # Nullable for anonymous reporting
+    barcode = Column(String, nullable=True, index=True)
+    product_name = Column(String, nullable=False)
+    brand_manufacturer = Column(String, nullable=True)
+    store_location = Column(String, nullable=False)
+    state_region = Column(String, nullable=True)
+    violation_type = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    image_path = Column(String, nullable=True)
+    status = Column(String, default="unverified_lead", index=True)  # unverified_lead, assigned, verified, dismissed
+    created_at = Column(DateTime, default=utcnow)
+
+
+class SafetyAlert(Base):
+    """
+    Public safety and recall alerts issued by Legal Metrology inspection officers / HQ.
+    """
+    __tablename__ = "safety_alerts"
+
+    id = Column(String, primary_key=True, default=gen_id)
+    title = Column(String, nullable=False)
+    product_name = Column(String, nullable=False)
+    brand_name = Column(String, nullable=False)
+    batch_number = Column(String, nullable=True)
+    hazard_type = Column(String, nullable=False)  # mislabeled_mrp, net_quantity_shortage, deceptive_packaging, recall
+    severity = Column(String, default="warning")  # critical, warning, advisory
+    description = Column(Text, nullable=False)
+    published_by = Column(String, default="Legal Metrology Directorate")
+    state_region = Column(String, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+
+class ComplianceRulePolicy(Base):
+    """
+    Statutory policy entries managed strictly by Headquarters.
+    Defines mandatory declaration rules, severities, and compounding penalties.
+    """
+    __tablename__ = "compliance_rule_policies"
+
+    id = Column(String, primary_key=True, default=gen_id)
+    rule_code = Column(String, unique=True, index=True, nullable=False)
+    title = Column(String, nullable=False)
+    category = Column(String, default="all")  # packaged_food, cosmetics, electronics, general, all
+    statutory_reference = Column(String, nullable=False)
+    severity = Column(String, default="MAJOR")  # CRITICAL, MAJOR, MINOR
+    description = Column(Text, nullable=False)
+    penalty_clause = Column(Text, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_by = Column(String, default="Legal Metrology Directorate")
+    updated_by = Column(String, default="Legal Metrology Directorate")
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+

@@ -51,14 +51,34 @@ async def create_scan(
     if interface not in ("consumer", "vendor", "inspector"):
         raise HTTPException(status_code=400, detail="interface must be consumer, vendor, or inspector")
 
+    user_role = user.get("role")
+    normalized_user_role = "officer" if user_role in ("officer", "inspector") else user_role
+    if interface == "inspector" and normalized_user_role != "officer":
+        raise HTTPException(status_code=403, detail="Forbidden: Inspector interface requires officer or inspector role")
+    if interface == "vendor" and user_role not in ("vendor", "officer", "inspector", "hq", "headquarters"):
+        raise HTTPException(status_code=403, detail="Forbidden: Vendor interface requires vendor, officer, or headquarters role")
+
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext or 'unknown'}")
 
-    contents = await file.read()
-    size_mb = len(contents) / (1024 * 1024)
-    if size_mb > settings.MAX_UPLOAD_SIZE_MB:
-        raise HTTPException(status_code=413, detail="File exceeds maximum upload size")
+    max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    chunks = []
+    total_bytes = 0
+    chunk_size = 1024 * 1024  # 1MB chunk streaming
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File exceeds maximum upload size of {settings.MAX_UPLOAD_SIZE_MB}MB",
+            )
+        chunks.append(chunk)
+
+    contents = b"".join(chunks)
     if not contents:
         raise HTTPException(status_code=400, detail="Empty file upload")
 
@@ -101,7 +121,49 @@ async def create_scan(
         scan.mismatch_flags = mismatch_flags
         scan.status = ScanStatus.completed
 
-        create_case_if_needed(db, scan)
+        new_case = create_case_if_needed(db, scan)
+        if new_case:
+            try:
+                from notifications import send_notification
+                violations = []
+                for res in (scan.compliance_results or []):
+                    if res.get("status") in ("NON_COMPLIANT", "FAIL"):
+                        violations.append({
+                            "rule": res.get("rule_name", "Statutory Rule"),
+                            "reason": res.get("reason", "Mandatory declaration non-compliance"),
+                        })
+                send_notification(
+                    template="case_notice",
+                    to_email=f"compliance@{(new_case.manufacturer_name or 'manufacturer').lower().replace(' ', '')}.com",
+                    recipient_name=f"Managing Director / Compliance Head, {new_case.manufacturer_name or 'Packaged Commodity Manufacturer'}",
+                    data={
+                        "case_id": new_case.id,
+                        "scan_id": scan.id,
+                        "manufacturer_name": new_case.manufacturer_name or "Unknown Manufacturer",
+                        "risk_score": scan.risk_score,
+                        "overall_status": new_case.overall_status,
+                        "violations": violations,
+                        "deadline_days": 15,
+                    },
+                )
+            except Exception as notif_err:
+                print(f"[NOTIFICATION WARNING] Could not dispatch case notice: {notif_err}")
+        elif scan.interface == "vendor" and scan.compliance_summary and scan.compliance_summary.get("overall_status") != "COMPLIANT":
+            try:
+                from notifications import send_notification
+                brand = (scan.structured_fields or {}).get("brand", {}).get("value") or (scan.structured_fields or {}).get("manufacturer", {}).get("value") or "Packaged Commodity"
+                send_notification(
+                    template="vendor_advisory",
+                    to_email=user.get("email") or "vendor@metra.gov.in",
+                    recipient_name=user.get("full_name") or user.get("name") or "Vendor Compliance Team",
+                    data={
+                        "brand_name": brand,
+                        "scan_ref": scan.id,
+                        "issues_count": len(scan.compliance_results or []),
+                    },
+                )
+            except Exception as notif_err:
+                print(f"[NOTIFICATION WARNING] Could not dispatch vendor advisory: {notif_err}")
 
     except RuntimeError as e:
         scan.status = ScanStatus.failed
@@ -130,9 +192,15 @@ def get_scan(scan_id: str, db: Session = Depends(get_db), user: dict = Depends(g
 @router.get("/scans", response_model=List[ScanOut])
 def list_scans(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     query = db.query(Scan)
-    if user["role"] in ("consumer", "vendor"):
+    user_role = user.get("role")
+    normalized_user_role = (
+        "officer"
+        if user_role in ("officer", "inspector")
+        else ("headquarters" if user_role in ("hq", "headquarters") else user_role)
+    )
+    if normalized_user_role in ("consumer", "vendor"):
         query = query.filter(Scan.user_id == user["sub"])
-    elif user["role"] == "hq" and user.get("state_region") not in (None, "ALL"):
+    elif normalized_user_role == "headquarters" and user.get("state_region") not in (None, "ALL"):
         query = query.filter(Scan.state_region == user["state_region"])
     return query.order_by(Scan.created_at.desc()).limit(200).all()
 
@@ -143,8 +211,10 @@ def override_scan(
     db: Session = Depends(get_db), user: dict = Depends(get_current_user),
 ):
     validate_id(scan_id, "scan_id")
-    if user["role"] != "inspector":
-        raise HTTPException(status_code=403, detail="Only inspectors may override scan fields")
+    user_role = user.get("role")
+    normalized_user_role = "officer" if user_role in ("officer", "inspector") else user_role
+    if normalized_user_role != "officer":
+        raise HTTPException(status_code=403, detail="Only officers/inspectors may override scan fields")
 
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
@@ -152,7 +222,7 @@ def override_scan(
 
     overrides = {
         o.field_name: {"value": o.value, "is_authoritative": o.is_authoritative,
-                        "reason": o.reason, "overridden_by": user["full_name"]}
+                        "reason": o.reason, "overridden_by": user.get("full_name") or "Officer"}
         for o in payload.overrides
     }
     compliance = evaluate_compliance(
@@ -182,10 +252,16 @@ def override_scan(
 
 @router.get("/cases", response_model=List[CaseOut])
 def list_cases(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
-    if user["role"] not in ("inspector", "hq"):
+    user_role = user.get("role")
+    normalized_user_role = (
+        "officer"
+        if user_role in ("officer", "inspector")
+        else ("headquarters" if user_role in ("hq", "headquarters") else user_role)
+    )
+    if normalized_user_role not in ("officer", "headquarters"):
         raise HTTPException(status_code=403, detail="Not authorized to view cases")
     query = db.query(Case)
-    if user["role"] == "hq" and user.get("state_region") not in (None, "ALL"):
+    if normalized_user_role == "headquarters" and user.get("state_region") not in (None, "ALL"):
         query = query.filter(Case.state_region == user["state_region"])
     return query.order_by(Case.opened_at.desc()).limit(200).all()
 
@@ -193,7 +269,13 @@ def list_cases(db: Session = Depends(get_db), user: dict = Depends(get_current_u
 @router.get("/cases/{case_id}", response_model=CaseOut)
 def get_case(case_id: str, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     validate_id(case_id, "case_id")
-    if user["role"] not in ("inspector", "hq"):
+    user_role = user.get("role")
+    normalized_user_role = (
+        "officer"
+        if user_role in ("officer", "inspector")
+        else ("headquarters" if user_role in ("hq", "headquarters") else user_role)
+    )
+    if normalized_user_role not in ("officer", "headquarters"):
         raise HTTPException(status_code=403, detail="Not authorized to view cases")
     case = db.query(Case).filter(Case.id == case_id).first()
     if not case:

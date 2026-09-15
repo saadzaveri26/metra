@@ -1,60 +1,41 @@
-# METRA — Agent Roster (Fresh Repo Build)
+# METRA — Agent Roster (Multi-Role Build)
 
-Repo layout:
-
-.agents/
-  agents.md
-  skills/
-  workflows/
-    startcycle.md
-app_build/
-  metra/
-    src/
-      app/         <- screens/pages
-      components/  <- reusable UI
-      lib/         <- API clients, utilities
-    backend/       <- FastAPI app (Python)
-production_artifacts/
-  Technical_Specification.md   <- seeded with lessons from the prior prototype
-  tech_stack.md
-ui_design/
-  figma_readme.md
-  figma_or_v0_exports/
-
-NOTE: Deployment skills (deploy_app, deploy_cloud_run) are intentionally 
-excluded from this build — deployment is deferred to a later cycle by 
-team decision. Do not create or invoke them until asked.
+Repo layout: SIH 2026/.agents/, app_build/metra/{src,backend}, production_artifacts/, ui_design/.
+No deployment skills included yet — deferred by team decision.
 
 ---
 
 ## 1. Spec Agent
-Turns a feature request into a precise technical specification in `production_artifacts/Technical_Specification.md` before any code is written. Never writes implementation code. Uses `write_specs`.
+Turns a feature request into a precise technical specification before any code is written. For any backend endpoint, the spec must state required role(s). Uses `write_specs`.
 
 ## 2. Backend Agent
-Senior Python/FastAPI engineer building `app_build/metra/backend/`: OCR extraction, 
-field structuring, compliance matrix/rules engine, risk scoring, notifications, and 
-health report modules. Uses `generate_code` against specs, and `vector_database` for 
-any semantic rule matching, Ask METRA retrieval, or seller/entity resolution work.
+Builds `app_build/metra/backend/`: OCR, field structuring, compliance engine, risk scoring, notifications, health report, and role-scoped data access for vendor/consumer/HQ endpoints. Uses `generate_code`.
 
 ## 3. Frontend Agent
-Senior Next.js/React (TypeScript) engineer building `app_build/metra/src/`: Dashboard, Scan, Compliance Result, Risk Queue, Ask METRA, and Consumer Health Report screens. Uses `generate_code`.
+Builds `app_build/metra/src/`: all four role dashboards per `build_role_dashboards`, and the custom landing/sign-in/sign-up pages per `setup_auth_clerk`. Uses `generate_code`.
 
 ## 4. Frontend Design Agent
-Translates a REAL design source into faithful React components — a Figma frame (via the Figma Dev Mode MCP server) or a reviewed v0.dev component. NEVER generates UI from a bare text prompt — this produced the "looks AI-generated" feedback in the previous round and is not to be repeated. Uses `design_frontend`, which includes a mandatory anti-genericness checklist.
+Translates a real design source (HTML export — primary; Figma; v0) into faithful components. NEVER generates from a bare text prompt. Uses `design_frontend`.
 
-## 5. Avatar Integration Agent
-Wires a team-built Rive `.riv` avatar (built manually in the Rive editor, not by this agent) into the app: state machine inputs and lip-sync logic. Uses `integrate_rive_avatar`.
+## 5. Auth & Access Agent
+Implements Clerk Custom Flow integration, role storage via `publicMetadata`, route middleware, and backend JWT verification. Uses `setup_auth_clerk`.
 
-## 6. Notification Agent
-Implements automated email notifications to a company/seller when a case is created with a compliance failure. Uses `send_notifications`.
+## 6. Avatar Integration Agent
+Wires the team-built Rive avatar into the app. Uses `integrate_rive_avatar`.
 
-## 7. Consumer Module Agent
-Implements the consumer-facing health/nutrition report feature, sourced from Open Food Facts. Distinct audience from officers — kept in a clearly separate part of the app. Uses `consumer_health_report`.
+## 7. Notification Agent
+Implements automated email notifications on compliance failure. Uses `send_notifications`.
 
-## 8. Code Auditor Agent
-Reviews all completed work against its spec, flags deviations, hardcoded secrets, unused code, missing error handling. Uses `audit_code`. Does not fix issues itself — reports them.
+## 8. Consumer Module Agent
+Implements the consumer-facing health/nutrition report and the broader Consumer dashboard features. Uses `consumer_health_report` and `build_role_dashboards`.
+
+## 9. Assistant Agent
+Implements Ask METRA's shared retrieval pipeline and per-role persona switching. Uses `vector_database` and `ask_metra_persona`.
+
+## 10. Code Auditor Agent
+Reviews all completed work against its spec, with explicit attention to role-boundary enforcement. Uses `audit_code`.
 
 ---
 
 ## Order of Operations
-Spec Agent → Frontend Design Agent (for any UI work, always sourced from Figma/v0) → relevant implementation agent(s) → Code Auditor Agent. Deployment is deferred — do not invoke deployment skills.
+Spec Agent → Frontend Design Agent (for UI work, sourced from HTML/Figma/v0) → Auth & Access Agent (for anything role-gated) → relevant implementation agent(s) → Code Auditor Agent. Deployment is deferred.

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in | METRA</title>
+  <style>
+    :root {
+      --blue: #0867c9;
+      --blue-dark: #063d78;
+      --blue-light: #eaf4ff;
+      --ink: #10243e;
+      --muted: #62738a;
+      --bg: #f7faff;
+      --white: #fff;
+      --line: #dce7f2;
+      --green: #159a68;
+      --green-light: #e5f8ef;
+      --amber: #b9781a;
+      --amber-light: #fff3df;
+      --brass: #9a6b12;
+      --brass-light: #faf3e4;
+      --navy: #0a2038;
+      --navy-light: #e9edf3;
+      --shadow: 0 18px 50px rgba(21, 62, 105, .10);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0 }
+    html { scroll-behavior: smooth }
+
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+
+    a { text-decoration: none; color: inherit }
+
+    .container { width: min(1160px, 92%); margin: auto }
+
+    header {
+      background: rgba(255, 255, 255, .94);
+      border-bottom: 1px solid rgba(220, 231, 242, .9)
+    }
+
+    nav {
+      height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px }
+
+    .brand-mark {
+      width: 42px; height: 42px; border-radius: 11px;
+      overflow: hidden; display: grid; place-items: center;
+      box-shadow: 0 7px 18px rgba(8, 103, 201, .25)
+    }
+
+    .brand-mark > img { width: 100%; height: 100%; object-fit: cover }
+
+    .brand strong { font-size: 20px; letter-spacing: .08em }
+
+    .brand span {
+      display: block; color: var(--muted); font-size: 10px;
+      margin-top: -2px; letter-spacing: .03em
+    }
+
+    .back-link {
+      font-size: 13px; font-weight: 700; color: var(--blue);
+      display: flex; align-items: center; gap: 6px
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: calc(100vh - 76px);
+    }
+
+    .side {
+      background: linear-gradient(160deg, var(--blue-dark), var(--blue));
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 60px;
+      position: relative;
+      overflow: hidden;
+      color: #fff;
+    }
+
+    .side img {
+      position: absolute;
+      right: 20px;
+      bottom: 0;
+      height: 92%;
+      object-fit: contain;
+      opacity: .96;
+    }
+
+    .side-copy { position: relative; max-width: 380px; z-index: 2 }
+    .side-copy h2 { font-size: 28px; line-height: 1.2; margin-bottom: 12px; letter-spacing: -.02em }
+    .side-copy p { font-size: 14px; opacity: .85 }
+
+    .side-tags { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; position: relative; z-index: 2 }
+    .side-tag {
+      font-size: 11px; font-weight: 700; background: rgba(255, 255, 255, .14);
+      border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; padding: 6px 12px
+    }
+
+    .form-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 40px 36px;
+    }
+
+    .card-eyebrow {
+      font-size: 12px; font-weight: 800; color: var(--blue);
+      letter-spacing: .03em; margin-bottom: 8px
+    }
+
+    .card h1 { font-size: 25px; letter-spacing: -.02em; margin-bottom: 8px }
+    .card .sub { font-size: 14px; color: var(--muted); margin-bottom: 28px }
+
+    label {
+      display: block; font-size: 12px; font-weight: 700;
+      color: #43566d; margin-bottom: 6px
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 13px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--ink);
+      margin-bottom: 18px;
+      transition: .15s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(8, 103, 201, .15)
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%;
+      border-radius: 10px; padding: 13px 18px;
+      font-weight: 700; font-size: 14px;
+      border: 1px solid transparent;
+      cursor: pointer; transition: .2s;
+      background: var(--blue); color: #fff;
+    }
+
+    .btn:hover { transform: translateY(-1px) }
+
+    .form-foot {
+      margin-top: 20px; text-align: center; font-size: 13px; color: var(--muted)
+    }
+
+    .form-foot a { color: var(--blue); font-weight: 700 }
+
+    .hint {
+      font-size: 12px; color: #8195ab; margin-top: -10px; margin-bottom: 20px
+    }
+
+    /* --- Step 2: role identity strip --- */
+    .role-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      border-radius: 999px; padding: 7px 14px 7px 8px;
+      font-size: 12px; font-weight: 800; margin-bottom: 22px;
+    }
+
+    .role-chip .dot {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 13px; background: #fff;
+    }
+
+    .switch-user {
+      font-size: 12px; color: var(--muted); margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px
+    }
+
+    .switch-user button {
+      background: none; border: none; color: var(--blue);
+      font-weight: 700; font-size: 12px; cursor: pointer
+    }
+
+    /* Consumer */
+    .role-consumer .role-chip { background: var(--green-light); color: var(--green) }
+    .role-consumer .role-chip .dot { color: var(--green) }
+    .role-consumer .btn { background: var(--green) }
+
+    /* Vendor */
+    .role-vendor .role-chip { background: var(--amber-light); color: var(--amber) }
+    .role-vendor .role-chip .dot { color: var(--amber) }
+    .role-vendor .btn { background: #c98a1f }
+
+    /* HQ */
+    .role-hq .role-chip { background: var(--navy-light); color: var(--navy) }
+    .role-hq .role-chip .dot { color: var(--navy) }
+    .role-hq .btn { background: var(--navy) }
+
+    /* Inspector, deliberately distinct: verification/seal motif, brass accent */
+    .role-inspector .card {
+      border: 1px solid #e6d8b8;
+      background: linear-gradient(180deg, #fffdf8, #fff);
+    }
+    .role-inspector .role-chip { background: var(--brass-light); color: var(--brass) }
+    .role-inspector .role-chip .dot { color: var(--brass) }
+    .role-inspector .btn { background: var(--brass) }
+
+    .verify-note {
+      display: flex; gap: 10px;
+      background: var(--brass-light);
+      border: 1px solid #e6d8b8;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: #7a5a0f;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .verify-note .seal {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--brass);
+      display: grid; place-items: center;
+      font-size: 13px; color: var(--brass); font-weight: 900;
+    }
+
+    .hidden { display: none }
+
+    .other-roles {
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    .other-roles a {
+      display: inline-block; margin: 4px 5px; font-weight: 700; font-size: 12px;
+      color: var(--ink); border: 1px solid var(--line); border-radius: 999px;
+      padding: 6px 13px;
+    }
+
+    .other-roles a:hover { border-color: var(--blue); color: var(--blue) }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr }
+      .side { display: none }
+      .form-wrap { padding: 30px 20px }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="container">
+      <nav>
+        <a class="brand" href="metra_landing_page.html">
+          <div class="brand-mark"><img src="METRA-closeup.png" alt="METRA"></div>
+          <div><strong>METRA</strong><span>METROLOGY ENFORCEMENT AND TRACEABILITY REGULATORY ASSISTANT</span></div>
+        </a>
+        <a class="back-link" href="metra_landing_page.html">&larr; Back to home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="side">
+      <img src="METRA-welcome.png" alt="">
+      <div class="side-copy">
+        <h2>Every inspection starts with a label.</h2>
+        <p>METRA reads it the same way, checks it against the same Rules, and remembers
+          what it found last time - whoever's signed in.</p>
+      </div>
+      <div class="side-tags">
+        <span class="side-tag">Consumer</span>
+        <span class="side-tag">Vendor</span>
+        <span class="side-tag">Inspector</span>
+        <span class="side-tag">Legal Metrology HQ</span>
+      </div>
+    </div>
+
+    <div class="form-wrap">
+
+      <!-- STEP 1: username only -->
+      <div class="card" id="step1">
+        <div class="card-eyebrow">STEP 1 OF 2</div>
+        <h1>Sign in to METRA</h1>
+        <p class="sub">Enter your username or registered email. We'll recognise your account and take you to the
+          right dashboard.</p>
+
+        <form id="usernameForm">
+          <label for="username">Username or email</label>
+          <input type="text" id="username" name="username" placeholder="e.g. inspector@demo.metra" required autofocus>
+          <div class="hint">Try a demo account: consumer@demo.metra, vendor@demo.metra, inspector@demo.metra, or
+            hq@demo.metra.</div>
+          <button type="submit" class="btn">Continue &nbsp;→</button>
+        </form>
+
+        <div class="form-foot">
+          New to METRA? Sign up as:
+        </div>
+        <div class="other-roles">
+          <a href="signup-consumer.html">Consumer</a>
+          <a href="signup-vendor.html">Vendor</a>
+          <a href="signup-inspector.html">Inspector</a>
+          <a href="signup-hq.html">Legal Metrology HQ</a>
+        </div>
+      </div>
+
+      <!-- STEP 2: role-specific sign-in, shown after username is recognised -->
+      <div class="card hidden" id="step2">
+        <div id="roleContent"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    const roleConfig = {
+      consumer: {
+        label: "Consumer account",
+        dot: "⌂",
+        wrapClass: "role-consumer",
+        heading: "Welcome back",
+        sub: "Sign in to scan a label, file a complaint, or find your state's Legal Metrology office.",
+        extraFieldsHtml: "",
+        btnLabel: "Sign in to Consumer dashboard",
+      },
+      vendor: {
+        label: "Vendor account",
+        dot: "▣",
+        wrapClass: "role-vendor",
+        heading: "Welcome back",
+        sub: "Sign in to run a pre-market self-check on your products or ask ASK METRA a question.",
+        extraFieldsHtml: "",
+        btnLabel: "Sign in to Vendor dashboard",
+      },
+      hq: {
+        label: "Legal Metrology HQ",
+        dot: "◈",
+        wrapClass: "role-hq",
+        heading: "Welcome back",
+        sub: "Sign in for the state-wide view of inspections, reports, and officer activity.",
+        extraFieldsHtml: "",
+        btnLabel: "Sign in to HQ dashboard",
+      },
+      inspector: {
+        label: "Inspector account",
+        dot: "◆",
+        wrapClass: "role-inspector",
+        heading: "Officer sign-in",
+        sub: "This dashboard is restricted to verified inspection officers.",
+        extraFieldsHtml: `
+          <div class="verify-note">
+            <div class="seal">✓</div>
+            <div>Your government ID, photograph, designation, department and state/region were
+              verified by Legal Metrology HQ when this account was created. Signing in confirms
+              it's still you.</div>
+          </div>`,
+        btnLabel: "Sign in to Inspector dashboard",
+      },
+    };
+
+    // Demo-only role lookup, matching the seeded demo accounts
+    // (consumer@demo.metra / vendor@demo.metra / inspector@demo.metra / hq@demo.metra)
+    // from the backend's seed.py. In production this step calls the backend
+    // to resolve the account's role before rendering step 2, it never
+    // guesses from the username string alone.
+    function resolveRole(username) {
+      const u = username.trim().toLowerCase();
+      if (u.includes("inspector")) return "inspector";
+      if (u.includes("vendor")) return "vendor";
+      if (u.includes("hq")) return "hq";
+      return "consumer";
+    }
+
+    const step1 = document.getElementById("step1");
+    const step2 = document.getElementById("step2");
+    const roleContent = document.getElementById("roleContent");
+
+    document.getElementById("usernameForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const username = document.getElementById("username").value;
+      const role = resolveRole(username);
+      const cfg = roleConfig[role];
+
+      step2.className = "card " + cfg.wrapClass;
+      roleContent.innerHTML = `
+        <div class="card-eyebrow">STEP 2 OF 2</div>
+        <div class="role-chip"><span class="dot">${cfg.dot}</span> ${cfg.label}</div>
+        <h1>${cfg.heading}</h1>
+        <p class="sub">${cfg.sub}</p>
+        <div class="switch-user">
+          Signing in as <strong>${username}</strong>
+          <button type="button" id="switchUser">Not you?</button>
+        </div>
+        ${cfg.extraFieldsHtml}
+        <form id="passwordForm">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter your password" required autofocus>
+          <button type="submit" class="btn">${cfg.btnLabel}</button>
+        </form>
+        <div class="form-foot"><a href="#">Forgot password?</a></div>
+      `;
+
+      step1.classList.add("hidden");
+      step2.classList.remove("hidden");
+
+      document.getElementById("switchUser").addEventListener("click", function () {
+        step2.classList.add("hidden");
+        step1.classList.remove("hidden");
+        document.getElementById("username").focus();
+      });
+
+      document.getElementById("passwordForm").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        // Hands off to POST /api/v1/auth/login on the backend, then routes
+        // to /dashboard/{role} using the role returned in the JWT.
+        alert("This prototype doesn't call the live backend yet. Wire this submit handler to POST /api/v1/auth/login.");
+      });
+    });
+  </script>
+
+</body>
+
+</html>

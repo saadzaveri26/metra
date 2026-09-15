@@ -1,0 +1,80 @@
+/*
+ * UX4G Design System
+ * Copyright © 2024-2026 Government of India
+ * Licensed under the MIT License
+ * https://ux4g.gov.in
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ═══ METRA Role Color Tokens (preserved) ═══ */
+  --blue: #0867c9;
+  --blue-dark: #063d78;
+  --blue-light: #eaf4ff;
+  --ink: #10243e;
+  --muted: #62738a;
+  --bg: #f7faff;
+  --white: #fff;
+  --line: #dce7f2;
+  --green: #159a68;
+  --green-light: #e5f8ef;
+  --green-dark: #0e6e4a;
+  --amber: #b9781a;
+  --amber-light: #fff3df;
+  --amber-dark: #c98a1f;
+  --brass: #9a6b12;
+  --brass-light: #faf3e4;
+  --brass-dark: #7a5a0f;
+  --brass-border: #e6d8b8;
+  --navy: #0a2038;
+  --navy-light: #e9edf3;
+
+  /* ═══ UX4G Elevation Tokens ═══ */
+  --shadow: 0 18px 50px rgba(21, 62, 105, 0.10);
+  --ux4g-shadow-l0: none;
+  --ux4g-shadow-l1: 0px 1px 2px 0px rgba(0,0,0,0.06), 0px 1px 2px 0px rgba(0,0,0,0.06);
+  --ux4g-shadow-l2: 0px 4px 8px 0px rgba(0,0,0,0.08), 0px 1px 2px 0px rgba(0,0,0,0.06);
+  --ux4g-shadow-l3: 0px 8px 16px 0px rgba(0,0,0,0.12), 0px 4px 8px 0px rgba(0,0,0,0.08);
+  --ux4g-shadow-l4: 0px 16px 32px 0px rgba(0,0,0,0.16), 0px 8px 16px 0px rgba(0,0,0,0.12);
+
+  /* ═══ UX4G Radius Tokens ═══ */
+  --ux4g-radius-none: 0px;
+  --ux4g-radius-xs: 2px;
+  --ux4g-radius-sm: 4px;
+  --ux4g-radius-md: 8px;
+  --ux4g-radius-lg: 12px;
+  --ux4g-radius-xl: 16px;
+  --ux4g-radius-2xl: 24px;
+  --ux4g-radius-full: 9999px;
+
+  /* ═══ UX4G Typography Tokens ═══ */
+  --ux4g-font-family-base: "Noto Sans", system-ui, sans-serif;
+  --ux4g-font-family-display: "Noto Sans Display", "Noto Sans", sans-serif;
+  --ux4g-font-weight-regular: 400;
+  --ux4g-font-weight-medium: 500;
+  --ux4g-font-weight-semibold: 600;
+  --ux4g-font-weight-bold: 700;
+  --ux4g-line-height-tight: 1.25;
+  --ux4g-line-height-normal: 1.5;
+  --ux4g-line-height-relaxed: 1.75;
+  --ux4g-line-height-hindi: 1.8;
+  --ux4g-min-font-size: 12px;
+  --ux4g-max-line-width: 720px;
+}
+
+body {
+  font-family: var(--ux4g-font-family-base);
+  color: var(--ink);
+  background: var(--bg);
+  line-height: var(--ux4g-line-height-normal);
+  min-height: 100vh;
+}
+
+.container-metra {
+  width: min(1160px, 92%);
+  margin-left: auto;
+  margin-right: auto;
+}

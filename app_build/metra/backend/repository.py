@@ -11,7 +11,23 @@ def get_manufacturer_violation_count(db: Session, manufacturer_name: Optional[st
         return 0
     normalized = normalize_manufacturer_name(manufacturer_name)
     row = db.query(ManufacturerViolationCount).filter_by(manufacturer_name_normalized=normalized).first()
-    return row.violation_count if row else 0
+    db_count = row.violation_count if row else 0
+
+    # Vector DB seller_registry entity resolution:
+    # Fuzzy-matches manufacturer name/alias (threshold >= 0.80, unified with routes_vector.py)
+    # to incorporate historical violations from semantically matched entities.
+    # NOTE: Previously 0.65, which was too permissive and could match unrelated
+    # manufacturers sharing common words (e.g. "Foods Ltd." overlap).
+    try:
+        from vector_store import match_seller
+        match = match_seller(manufacturer_name, threshold=0.80)
+        if match and match.get("metadata"):
+            vector_violations = int(match["metadata"].get("historical_violations_count", 0))
+            return max(db_count, vector_violations)
+    except Exception:
+        pass
+
+    return db_count
 
 
 def bump_manufacturer_violation_count(db: Session, manufacturer_name: Optional[str]) -> None:
@@ -27,7 +43,15 @@ def bump_manufacturer_violation_count(db: Session, manufacturer_name: Optional[s
 
 
 def create_case_if_needed(db: Session, scan: Scan) -> Optional[Case]:
-    """Auto-creates a Case when overall_status != COMPLIANT (per spec)."""
+    """Auto-creates a Case when overall_status != COMPLIANT (per spec).
+    STATUTORY ISOLATION:
+    Vendor self-checks (interface == 'vendor') and consumer lookups/reports (interface == 'consumer')
+    NEVER auto-create official Cases and NEVER increment manufacturer violation counts.
+    Cases are strictly created from authorized officer/inspector scans.
+    """
+    if scan.interface in ("vendor", "consumer"):
+        return None
+
     if not scan.compliance_summary:
         return None
     overall = scan.compliance_summary.get("overall_status")
@@ -50,3 +74,4 @@ def create_case_if_needed(db: Session, scan: Scan) -> Optional[Case]:
     )
     db.add(case)
     return case
+
