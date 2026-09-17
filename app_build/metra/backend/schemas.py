@@ -39,6 +39,16 @@ class RegisterInspector(BaseModel):
     phone: Optional[str] = None
 
 
+class OfficerApplicationRequest(BaseModel):
+    user_id: str
+    email: EmailStr
+    full_name: str
+    government_id: str
+    state_region: str
+    designation: Optional[str] = "Legal Metrology Inspector"
+    phone: Optional[str] = None
+
+
 class RegisterHQ(BaseModel):
     email: EmailStr
     password: str

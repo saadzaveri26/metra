@@ -1,5 +1,5 @@
+import RoleTopNavbar from "@/components/navigation/RoleTopNavbar";
 import VendorSidebar from "@/components/vendor/VendorSidebar";
-import VendorHeader from "@/components/vendor/VendorHeader";
 
 export const metadata = {
   title: "Vendor Portal | METRA",
@@ -12,10 +12,10 @@ export default function VendorLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-[#f7faff]">
-      <VendorSidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <VendorHeader />
+    <div className="flex flex-col min-h-screen bg-[#f7faff]">
+      <RoleTopNavbar role="vendor" />
+      <div className="flex-1 flex min-w-0">
+        <VendorSidebar />
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">{children}</main>
       </div>
     </div>

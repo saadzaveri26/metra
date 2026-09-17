@@ -16,6 +16,7 @@ import {
   Flame,
   AlertOctagon,
 } from "lucide-react";
+import { API_BASE } from "@/lib/api";
 
 interface NutritionData {
   nutriscore_grade: string;
@@ -75,7 +76,7 @@ function ConsumerLookupContent() {
     setIsLoading(true);
     try {
       const res = await fetch(
-        `http://localhost:8000/api/v1/consumer/lookup?barcode=${encodeURIComponent(codeToQuery)}`
+        `${API_BASE}/api/v1/consumer/lookup?barcode=${encodeURIComponent(codeToQuery)}`
       );
       if (res.ok) {
         const data = await res.json();

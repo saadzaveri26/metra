@@ -21,6 +21,7 @@ import {
   AlertOctagon,
 } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
+import { API_BASE } from "@/lib/api";
 
 interface ComplianceField {
   status: "COMPLIANT" | "NON_COMPLIANT" | "NEEDS_REVIEW";
@@ -135,7 +136,7 @@ export default function OfficerScanPage() {
       if (listedMrp) formData.append("listed_mrp", listedMrp);
       if (listedNetQty) formData.append("listed_net_quantity", listedNetQty);
 
-      const response = await fetch("http://localhost:8000/api/v1/scans", {
+      const response = await fetch(`${API_BASE}/api/v1/scans`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
@@ -309,7 +310,7 @@ export default function OfficerScanPage() {
         ],
       };
 
-      const res = await fetch(`http://localhost:8000/api/v1/scans/${scanResult.id}/override`, {
+      const res = await fetch(`${API_BASE}/api/v1/scans/${scanResult.id}/override`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -724,7 +725,7 @@ export default function OfficerScanPage() {
       {/* Inspector Manual Override Modal */}
       {overrideField && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-ux4g-4 border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-base font-bold text-[#10243e] flex items-center gap-2">
               <Edit3 className="w-4 h-4 text-[#0867c9]" />
               <span>Inspector Manual Override</span>

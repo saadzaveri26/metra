@@ -111,6 +111,18 @@ export default function HQOfficersPage() {
     setVerifyingId(officerId);
     setSuccessMessage(null);
     try {
+      // 1. Sync Clerk publicMetadata if user is registered through Clerk
+      try {
+        await fetch("/api/hq/officers/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ officerId, action: "verify" }),
+        });
+      } catch (clerkErr) {
+        console.warn("Clerk officer verify sync notice:", clerkErr);
+      }
+
+      // 2. Call backend relational DB endpoint
       const token = await getToken();
       const res = await fetch(`http://127.0.0.1:8000/api/v1/hq/officers/${officerId}/verify`, {
         method: "POST",

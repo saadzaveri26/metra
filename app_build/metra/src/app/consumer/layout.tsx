@@ -1,5 +1,5 @@
+import RoleTopNavbar from "@/components/navigation/RoleTopNavbar";
 import ConsumerSidebar from "@/components/consumer/ConsumerSidebar";
-import ConsumerHeader from "@/components/consumer/ConsumerHeader";
 
 export const metadata = {
   title: "Citizen Portal | METRA",
@@ -12,10 +12,10 @@ export default function ConsumerLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-[#f7faff]">
-      <ConsumerSidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <ConsumerHeader />
+    <div className="flex flex-col min-h-screen bg-[#f7faff]">
+      <RoleTopNavbar role="consumer" />
+      <div className="flex-1 flex min-w-0">
+        <ConsumerSidebar />
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">{children}</main>
       </div>
     </div>

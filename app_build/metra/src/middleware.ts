@@ -6,7 +6,7 @@ const isVendorRoute = createRouteMatcher(["/vendor(.*)"]);
 const isConsumerRoute = createRouteMatcher(["/consumer(.*)"]);
 const isHqRoute = createRouteMatcher(["/headquarters(.*)", "/hq(.*)"]);
 
-const proxyHandler = clerkMiddleware(async (auth, req) => {
+const middleware = clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth();
 
   // Redirect unauthenticated requests to our app's own local /sign-in page
@@ -24,15 +24,23 @@ const proxyHandler = clerkMiddleware(async (auth, req) => {
     (sessionClaims?.metadata as any)?.role ||
     (sessionClaims?.publicMetadata as any)?.role;
 
+  let inspectorVerified =
+    (sessionClaims as any)?.inspector_verified ??
+    (sessionClaims?.metadata as any)?.inspector_verified ??
+    (sessionClaims?.publicMetadata as any)?.inspector_verified;
+
   // Fallback: If role claim is not yet in the session token (e.g. before token refresh or template config),
   // fetch directly from Clerk user publicMetadata so legitimate users are never locked out.
-  if (!role && userId) {
+  if ((!role || inspectorVerified === undefined) && userId) {
     try {
       const client = await clerkClient();
       const user = await client.users.getUser(userId);
-      role = (user.publicMetadata as any)?.role;
+      if (!role) role = (user.publicMetadata as any)?.role;
+      if (inspectorVerified === undefined) {
+        inspectorVerified = (user.publicMetadata as any)?.inspector_verified;
+      }
     } catch (e) {
-      console.error("Proxy fallback user fetch error:", e);
+      console.error("Middleware fallback user fetch error:", e);
     }
   }
 
@@ -44,8 +52,29 @@ const proxyHandler = clerkMiddleware(async (auth, req) => {
   // 1. Officer route protection
   if (isOfficerRoute(req)) {
     if (!userId) return toLocalSignIn(req.url);
+
+    const isPendingPath = req.nextUrl.pathname === "/officer/pending";
+
+    // If officer credentials are in pending approval status
+    const isPendingOfficer =
+      role === "officer_pending" ||
+      ((role === "officer" || role === "inspector") && !inspectorVerified);
+
+    if (isPendingOfficer) {
+      if (!isPendingPath) {
+        return NextResponse.redirect(new URL("/officer/pending", req.url));
+      }
+      return NextResponse.next();
+    }
+
+    // Must be approved officer or inspector for operational routes
     if (role !== "officer" && role !== "inspector") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
+    }
+
+    // If verified officer visits /officer/pending, redirect them to operational portal
+    if (inspectorVerified && isPendingPath) {
+      return NextResponse.redirect(new URL("/officer", req.url));
     }
   }
 
@@ -74,8 +103,7 @@ const proxyHandler = clerkMiddleware(async (auth, req) => {
   }
 });
 
-export default proxyHandler;
-export const proxy = proxyHandler;
+export default middleware;
 
 export const config = {
   matcher: [

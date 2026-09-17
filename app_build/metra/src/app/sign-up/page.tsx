@@ -6,11 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
-type AllowedRole = "consumer" | "vendor";
-
 function SignUpContent() {
   const { isLoaded, signUp, setActive } = useSignUp();
-  const { isSignedIn, user, isLoaded: isUserLoaded } = useUser();
+  const { isSignedIn, user } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -18,7 +16,7 @@ function SignUpContent() {
   const roleParam = searchParams.get("role")?.toLowerCase() || "";
   const [selectedRole, setSelectedRole] = useState<string>(roleParam);
 
-  // Form states
+  // General Form states
   const [fullName, setFullName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [gstin, setGstin] = useState("");
@@ -26,6 +24,11 @@ function SignUpContent() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Officer-specific application states
+  const [governmentId, setGovernmentId] = useState("");
+  const [stateRegion, setStateRegion] = useState("Maharashtra (Mumbai)");
+  const [designation, setDesignation] = useState("Legal Metrology Inspector");
 
   // Verification state
   const [verifying, setVerifying] = useState(false);
@@ -40,7 +43,8 @@ function SignUpContent() {
     }
   }, [roleParam]);
 
-  const isRestrictedRole = selectedRole === "inspector" || selectedRole === "officer" || selectedRole === "hq" || selectedRole === "headquarters";
+  const isRestrictedRole = selectedRole === "hq" || selectedRole === "headquarters";
+  const isOfficerApplication = selectedRole === "inspector" || selectedRole === "officer";
 
   const handleOAuthSignUp = async (role: "consumer" | "vendor") => {
     if (!isLoaded || !signUp) return;
@@ -62,6 +66,7 @@ function SignUpContent() {
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLoaded || !signUp) return;
+
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -70,7 +75,17 @@ function SignUpContent() {
       setError("Passwords do not match");
       return;
     }
-    if (selectedRole !== "consumer" && selectedRole !== "vendor") {
+
+    if (isOfficerApplication) {
+      if (!governmentId.trim()) {
+        setError("Official Government / Inspector ID is required.");
+        return;
+      }
+      if (!stateRegion.trim()) {
+        setError("Jurisdiction State / Directorate region is required.");
+        return;
+      }
+    } else if (selectedRole !== "consumer" && selectedRole !== "vendor") {
       setError("Self-service sign-up is only available for Consumer and Vendor roles.");
       return;
     }
@@ -115,7 +130,26 @@ function SignUpContent() {
       if (completeSignUp.status === "complete") {
         await setActive({ session: completeSignUp.createdSessionId });
 
-        // Call backend server-side endpoint to assign role to publicMetadata
+        if (isOfficerApplication) {
+          // Send to dedicated pending officer approval queue
+          await fetch("/api/auth/apply-officer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              government_id: governmentId.trim(),
+              state_region: stateRegion.trim(),
+              designation: designation.trim() || "Legal Metrology Inspector",
+              full_name: fullName.trim(),
+              phone: phone.trim() || null,
+              email: email.trim(),
+            }),
+          });
+
+          window.location.href = "/officer/pending";
+          return;
+        }
+
+        // Call server-side set-role endpoint for vendor / consumer
         await fetch("/api/auth/set-role", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -128,6 +162,37 @@ function SignUpContent() {
       }
     } catch (err: any) {
       setError(err?.errors?.[0]?.longMessage || err?.message || "Invalid verification code");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExistingUserOfficerApplication = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!governmentId.trim() || !stateRegion.trim()) {
+      setError("Government ID and Jurisdiction State are required.");
+      return;
+    }
+    setError(null);
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/auth/apply-officer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          government_id: governmentId.trim(),
+          state_region: stateRegion.trim(),
+          designation: designation.trim() || "Legal Metrology Inspector",
+          full_name: fullName.trim() || user?.fullName || "Legal Metrology Officer",
+          phone: phone.trim() || null,
+          email: user?.primaryEmailAddress?.emailAddress || email.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit application");
+      window.location.href = "/officer/pending";
+    } catch (err: any) {
+      setError(err.message || "Failed to submit officer application");
     } finally {
       setIsLoading(false);
     }
@@ -175,16 +240,14 @@ function SignUpContent() {
         {/* VIEW 1: ROLE SELECTION CARDS (IF NO ROLE CHOSEN) */}
         {!selectedRole && (
           <div className="w-full max-w-[960px]">
-            {/* Clerk Smart CAPTCHA container for bot sign-up protection */}
-            <div id="clerk-captcha" className="my-2 flex justify-center" />
-
             <div className="text-center max-w-[620px] mx-auto mb-10">
-              <div className="inline-block bg-[#eaf4ff] text-[#0867c9] text-[12px] font-extrabold uppercase px-3 py-1 rounded-full mb-3">
-                Create an account
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[12px] font-extrabold bg-[#eaf4ff] text-[#0867c9] border border-[#dce7f2] mb-3">
+                <span>&#9679;</span>
+                <span>Role-Based Registration</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">Sign up for METRA</h1>
-              <p className="text-[#62738a] text-[15px]">
-                Choose the role that matches how you will use METRA. Self-registration is available for Consumers and Vendors.
+              <h1 className="text-3xl font-bold tracking-tight mb-3">Choose your account type</h1>
+              <p className="text-[14.5px] text-[#62738a] leading-relaxed">
+                METRA separates public consumer services and vendor compliance tools from official state enforcement and administrative governance.
               </p>
             </div>
 
@@ -200,7 +263,7 @@ function SignUpContent() {
                   </div>
                   <h3 className="text-lg font-bold mb-1">Consumer</h3>
                   <p className="text-[13px] text-[#62738a] mb-4">
-                    Scan packaging labels, check MRP accuracy, and file consumer grievances.
+                    Scan packaged goods, check MRP compliance, and report statutory violations.
                   </p>
                 </div>
                 <span className="text-[13px] font-extrabold text-[#159a68] flex items-center justify-between">
@@ -229,10 +292,10 @@ function SignUpContent() {
                 </span>
               </div>
 
-              {/* Inspector Card (Restricted) */}
+              {/* Inspector Card (Self-Signup with HQ Approval Queue) */}
               <div
                 onClick={() => setSelectedRole("inspector")}
-                className="cursor-pointer bg-gradient-to-b from-[#fffdf8] to-white border border-[#e6d8b8] rounded-[18px] p-6 flex flex-col justify-between shadow-sm hover:-translate-y-1 transition-all"
+                className="cursor-pointer bg-gradient-to-b from-[#fffdf8] to-white border border-[#e6d8b8] rounded-[18px] p-6 flex flex-col justify-between shadow-sm hover:border-[#9a6b12] hover:-translate-y-1 transition-all"
               >
                 <div>
                   <div className="w-12 h-12 rounded-xl bg-[#faf3e4] text-[#9a6b12] flex items-center justify-center text-xl font-bold mb-4">
@@ -240,15 +303,16 @@ function SignUpContent() {
                   </div>
                   <h3 className="text-lg font-bold mb-1">Inspector / Officer</h3>
                   <p className="text-[13px] text-[#62738a] mb-4">
-                    Restricted enforcement suite for designated Legal Metrology Officers.
+                    Apply with your Government ID. Enters Legal Metrology HQ queue for verification before field authorization.
                   </p>
                 </div>
-                <span className="text-[12px] font-bold text-[#9a6b12] bg-[#faf3e4] px-2 py-1 rounded">
-                  Admin Provisioned Only
+                <span className="text-[13px] font-extrabold text-[#9a6b12] flex items-center justify-between">
+                  <span>Apply for Officer Access</span>
+                  <span>&rarr;</span>
                 </span>
               </div>
 
-              {/* HQ Card (Restricted) */}
+              {/* HQ Card (Strictly Restricted) */}
               <div
                 onClick={() => setSelectedRole("hq")}
                 className="cursor-pointer bg-white border border-[#dce7f2] rounded-[18px] p-6 flex flex-col justify-between shadow-sm hover:border-[#0a2038] hover:-translate-y-1 transition-all"
@@ -277,35 +341,33 @@ function SignUpContent() {
           </div>
         )}
 
-        {/* VIEW 2: RESTRICTED ROLE NOTICE (FOR OFFICER & HQ) */}
+        {/* VIEW 2: RESTRICTED ROLE NOTICE (FOR HEADQUARTERS ONLY) */}
         {selectedRole && isRestrictedRole && (
           <div className="w-full max-w-[500px] bg-white border border-[#e6d8b8] rounded-[18px] p-8 sm:p-10 shadow-[0_18px_50px_rgba(21,62,105,0.10)]">
-            {/* Clerk Smart CAPTCHA container */}
-            <div id="clerk-captcha" className="my-2 flex justify-center" />
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[12px] font-extrabold bg-[#faf3e4] text-[#7a5a0f] border border-[#e6d8b8] mb-4">
               <span>&#9670;</span>
               <span>Administrative Role Notice</span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight mb-2">
-              {selectedRole.includes("hq") ? "Legal Metrology HQ" : "Enforcement Officer"} Access
+              Legal Metrology HQ Directorate Access
             </h1>
             <p className="text-[14px] text-[#62738a] mb-6">
-              In accordance with Legal Metrology security protocols, Officer and HQ accounts are strictly <strong>never self-creatable</strong> and cannot be registered publicly.
+              In accordance with central security protocols, Headquarters directorate accounts are strictly <strong>never self-creatable</strong> and cannot be registered publicly.
             </p>
 
             <div className="bg-[#faf3e4] border border-[#e6d8b8] rounded-[12px] p-4 text-[13px] text-[#7a5a0f] leading-relaxed mb-6">
               <strong>Official Provisioning Process:</strong>
               <p className="mt-1">
-                Authorized officers must have their Government ID, designation, department, and state credentials verified and provisioned directly by Legal Metrology HQ.
+                Authorized directorate personnel must have their administrative appointment credentials verified and provisioned directly by Legal Metrology State/National Administration.
               </p>
             </div>
 
             <div className="space-y-3">
               <Link
                 href="/sign-in"
-                className="w-full py-3 px-4 bg-[#9a6b12] text-white font-bold text-[14px] rounded-[10px] text-center block hover:bg-[#7a5a0f] transition-colors"
+                className="w-full py-3 px-4 bg-[#0a2038] text-white font-bold text-[14px] rounded-[10px] text-center block hover:bg-[#153457] transition-colors"
               >
-                Sign In with Issued Officer Credentials
+                Sign In with Issued HQ Credentials
               </Link>
               <button
                 type="button"
@@ -319,7 +381,7 @@ function SignUpContent() {
         )}
 
         {/* VIEW 3: SELF-SERVICE SIGN-UP FORM (CONSUMER & VENDOR) */}
-        {selectedRole && !isRestrictedRole && (
+        {selectedRole && !isRestrictedRole && !isOfficerApplication && (
           <div className="w-full max-w-[480px] bg-white border border-[#dce7f2] rounded-[18px] p-8 sm:p-10 shadow-[0_18px_50px_rgba(21,62,105,0.10)]">
             <div className="flex items-center justify-between mb-4">
               <div
@@ -371,55 +433,11 @@ function SignUpContent() {
             )}
 
             {error && (
-              error.toLowerCase().includes("already signed in") ? (
-                <div className="mb-5 p-4 bg-[#fff7e6] border border-[#ffd591] rounded-xl text-[#874d00] text-[13px]">
-                  <div className="font-bold mb-1 flex items-center gap-1.5">
-                    <span>&#9888;</span>
-                    <span>You are already signed in</span>
-                  </div>
-                  <p className="mb-3 text-[12.5px] text-[#874d00]/90 leading-relaxed">
-                    Your browser has an active session for{" "}
-                    <strong>{user?.primaryEmailAddress?.emailAddress || "your account"}</strong>. To register a brand new account, please sign out of this session first.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await signOut();
-                        setError(null);
-                      }}
-                      className="px-3.5 py-1.5 bg-[#d46b08] hover:bg-[#ad4e00] text-white font-bold text-[12px] rounded-lg transition-colors shadow-sm"
-                    >
-                      Sign out &amp; continue sign-up
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const role = (user?.publicMetadata as any)?.role || "consumer";
-                        const dest =
-                          role === "vendor"
-                            ? "/vendor"
-                            : role === "officer" || role === "inspector"
-                            ? "/officer"
-                            : role === "headquarters" || role === "hq"
-                            ? "/headquarters"
-                            : "/consumer";
-                        window.location.href = dest;
-                      }}
-                      className="px-3.5 py-1.5 bg-white border border-[#dce7f2] text-[#43566d] font-bold text-[12px] rounded-lg hover:bg-[#f7faff] transition-colors"
-                    >
-                      Go to Dashboard
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mb-5 p-3.5 bg-[#fde9ea] border border-[#f7c5c7] rounded-lg text-[#c84c54] text-[13px] font-medium leading-snug">
-                  {error}
-                </div>
-              )
+              <div className="mb-5 p-3.5 bg-[#fde9ea] border border-[#f7c5c7] rounded-lg text-[#c84c54] text-[13px] font-medium leading-snug">
+                {error}
+              </div>
             )}
 
-            {/* Clerk Smart CAPTCHA container for bot sign-up protection */}
             <div id="clerk-captcha" className="my-2 flex justify-center" />
 
             {!verifying ? (
@@ -612,6 +630,292 @@ function SignUpContent() {
 
             <div className="mt-6 pt-5 border-t border-[#dce7f2] text-center text-[13px] text-[#62738a]">
               Already have an account?{" "}
+              <Link href="/sign-in" className="text-[#0867c9] font-bold hover:underline">
+                Sign in
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* VIEW 4: OFFICER APPLICATION FORM (QUEUE-BASED SELF-SIGNUP) */}
+        {selectedRole && isOfficerApplication && (
+          <div className="w-full max-w-[540px] bg-white border border-[#e6d8b8] rounded-[18px] p-8 sm:p-10 shadow-[0_18px_50px_rgba(21,62,105,0.10)]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[12px] font-extrabold bg-[#faf3e4] text-[#8a5d00] border border-[#e6d8b8]">
+                <span>&#9670;</span>
+                <span>Enforcement Officer Application</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRole("")}
+                className="text-[12px] text-[#62738a] hover:text-[#0867c9]"
+              >
+                Change role
+              </button>
+            </div>
+
+            <h1 className="text-2xl font-bold tracking-tight text-[#10243e] mb-2">
+              Apply for Officer Credentials
+            </h1>
+            <p className="text-[13.5px] text-[#62738a] mb-5 leading-relaxed">
+              Submit your statutory credentials for Directorate verification. Applications enter the Legal Metrology HQ approval queue before field enforcement authority is granted.
+            </p>
+
+            <div className="bg-[#faf3e4] border border-[#e6d8b8] rounded-[12px] p-3.5 text-[12.5px] text-[#7a5a0f] leading-relaxed mb-6">
+              <strong>Statutory Requirement Notice:</strong>
+              <p className="mt-0.5">
+                Officer accounts start in a non-operational <code>officer_pending</code> state until approved by Legal Metrology Headquarters.
+              </p>
+            </div>
+
+            {isSignedIn && !verifying && (
+              <div className="mb-6 p-4 bg-[#eaf4ff] border border-[#b8daff] rounded-xl text-[#0867c9] text-[13px]">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div>
+                    <span className="font-bold">Active session:</span>{" "}
+                    <span>{user?.primaryEmailAddress?.emailAddress || "Signed in"}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await signOut();
+                      setError(null);
+                    }}
+                    className="px-2.5 py-1 bg-white border border-[#b8daff] text-[#0867c9] font-bold text-[11px] rounded hover:bg-[#f0f7ff] transition-colors"
+                  >
+                    Sign out
+                  </button>
+                </div>
+                <p className="text-[12px] text-[#43566d] mb-4">
+                  You are currently signed in. You can apply for officer credentials directly for this account below:
+                </p>
+
+                <form onSubmit={handleExistingUserOfficerApplication} className="space-y-3.5 text-[#10243e]">
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#43566d] mb-1">
+                      Government / Inspector ID *
+                    </label>
+                    <input
+                      type="text"
+                      value={governmentId}
+                      onChange={(e) => setGovernmentId(e.target.value)}
+                      placeholder="e.g. LM-MH-2024-889"
+                      required
+                      className="w-full bg-white border border-[#dce7f2] rounded-[10px] p-2.5 text-[13px]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#43566d] mb-1">
+                      Jurisdiction / State Directorate *
+                    </label>
+                    <input
+                      type="text"
+                      value={stateRegion}
+                      onChange={(e) => setStateRegion(e.target.value)}
+                      placeholder="e.g. Maharashtra (Mumbai)"
+                      required
+                      className="w-full bg-white border border-[#dce7f2] rounded-[10px] p-2.5 text-[13px]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#43566d] mb-1">
+                      Designation
+                    </label>
+                    <input
+                      type="text"
+                      value={designation}
+                      onChange={(e) => setDesignation(e.target.value)}
+                      placeholder="e.g. Legal Metrology Inspector"
+                      className="w-full bg-white border border-[#dce7f2] rounded-[10px] p-2.5 text-[13px]"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-2.5 px-4 bg-[#8a5d00] hover:bg-[#724d00] text-white font-bold text-[13px] rounded-[10px] transition-colors"
+                  >
+                    {isLoading ? "Submitting Application..." : "Submit Officer Application to HQ"}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-5 p-3.5 bg-[#fde9ea] border border-[#f7c5c7] rounded-lg text-[#c84c54] text-[13px] font-medium leading-snug">
+                {error}
+              </div>
+            )}
+
+            {!isSignedIn && !verifying && (
+              <form onSubmit={handleEmailSignUp} className="space-y-4">
+                <div>
+                  <label className="block text-[12px] font-bold text-[#43566d] mb-1" htmlFor="offName">
+                    Full Official Name *
+                  </label>
+                  <input
+                    id="offName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="e.g. Rajesh Deshmukh"
+                    required
+                    className="w-full border border-[#dce7f2] rounded-[10px] p-3 text-[14px]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-bold text-[#43566d] mb-1" htmlFor="offEmail">
+                    Official Email Address *
+                  </label>
+                  <input
+                    id="offEmail"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="e.g. deshmukh.r@doca.gov.in"
+                    required
+                    className="w-full border border-[#dce7f2] rounded-[10px] p-3 text-[14px]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#43566d] mb-1" htmlFor="govId">
+                      Government / Inspector ID *
+                    </label>
+                    <input
+                      id="govId"
+                      type="text"
+                      value={governmentId}
+                      onChange={(e) => setGovernmentId(e.target.value)}
+                      placeholder="e.g. LM-MH-2024-889"
+                      required
+                      className="w-full border border-[#dce7f2] rounded-[10px] p-3 text-[14px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#43566d] mb-1" htmlFor="stateReg">
+                      Jurisdiction / State *
+                    </label>
+                    <input
+                      id="stateReg"
+                      type="text"
+                      value={stateRegion}
+                      onChange={(e) => setStateRegion(e.target.value)}
+                      placeholder="e.g. Maharashtra (Mumbai)"
+                      required
+                      className="w-full border border-[#dce7f2] rounded-[10px] p-3 text-[14px]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#43566d] mb-1" htmlFor="desig">
+                      Official Designation
+                    </label>
+                    <input
+                      id="desig"
+                      type="text"
+                      value={designation}
+                      onChange={(e) => setDesignation(e.target.value)}
+                      placeholder="Legal Metrology Inspector"
+                      className="w-full border border-[#dce7f2] rounded-[10px] p-3 text-[14px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#43566d] mb-1" htmlFor="offPhone">
+                      Official Phone (Optional)
+                    </label>
+                    <input
+                      id="offPhone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="10-digit mobile"
+                      className="w-full border border-[#dce7f2] rounded-[10px] p-3 text-[14px]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#43566d] mb-1" htmlFor="offPass">
+                      Password (min. 8 characters)
+                    </label>
+                    <input
+                      id="offPass"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="At least 8 characters"
+                      minLength={8}
+                      required
+                      className="w-full border border-[#dce7f2] rounded-[10px] p-3 text-[14px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#43566d] mb-1" htmlFor="offConf">
+                      Confirm Password
+                    </label>
+                    <input
+                      id="offConf"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter password"
+                      minLength={8}
+                      required
+                      className="w-full border border-[#dce7f2] rounded-[10px] p-3 text-[14px]"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3 px-4 text-white font-bold text-[14px] rounded-[10px] bg-[#8a5d00] hover:bg-[#724d00] transition-transform hover:-translate-y-0.5 disabled:opacity-60"
+                >
+                  {isLoading ? "Submitting Application..." : "Submit Application to HQ Queue"}
+                </button>
+              </form>
+            )}
+
+            {verifying && (
+              <form onSubmit={handleVerifyCode} className="space-y-4">
+                <div className="p-3.5 bg-[#faf3e4] border border-[#e6d8b8] rounded-[10px] text-[13px] text-[#7a5a0f]">
+                  A 6-digit verification code was sent to <strong>{email}</strong>. Enter it to confirm your identity and queue your application:
+                </div>
+                <div>
+                  <label className="block text-[12px] font-bold text-[#43566d] mb-1" htmlFor="offCode">
+                    Verification Code
+                  </label>
+                  <input
+                    id="offCode"
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    placeholder="Enter 6-digit code"
+                    required
+                    autoFocus
+                    className="w-full border border-[#dce7f2] rounded-[10px] p-3 text-center text-xl tracking-widest font-mono font-bold text-[#10243e]"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3 px-4 bg-[#8a5d00] text-white font-bold text-[14px] rounded-[10px] hover:bg-[#724d00] transition-colors"
+                >
+                  {isLoading ? "Submitting Application..." : "Verify & Queue for HQ Review"}
+                </button>
+              </form>
+            )}
+
+            <div className="mt-6 pt-5 border-t border-[#dce7f2] text-center text-[13px] text-[#62738a]">
+              Already have an authorized officer account?{" "}
               <Link href="/sign-in" className="text-[#0867c9] font-bold hover:underline">
                 Sign in
               </Link>

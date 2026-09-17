@@ -87,7 +87,7 @@ export default function MetraAvatar({
             : internalState === "listening"
             ? "bg-emerald-400"
             : internalState === "thinking"
-            ? "bg-indigo-400"
+            ? "bg-amber-400"
             : "bg-blue-500"
         }`}
       />
@@ -363,8 +363,8 @@ export default function MetraAvatar({
             </>
           ) : internalState === "thinking" ? (
             <>
-              <BrainCircuit className="w-3 h-3 text-indigo-400 animate-spin" />
-              <span className="text-[10px] font-bold text-indigo-300 tracking-wide">
+              <BrainCircuit className="w-3 h-3 text-amber-400 animate-spin" />
+              <span className="text-[10px] font-bold text-amber-300 tracking-wide">
                 Analyzing PCR 2011 Corpus
               </span>
             </>

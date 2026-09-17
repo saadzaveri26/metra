@@ -269,8 +269,6 @@ export default function SignInPage() {
               </div>
             )}
 
-            {/* Clerk Smart CAPTCHA container for bot protection */}
-            <div id="clerk-captcha" className="my-2 flex justify-center" />
 
             {step === 1 && (
               <div id="step1">

@@ -11,7 +11,6 @@ import {
   Scale,
   Inbox,
   LogOut,
-  ExternalLink,
   Crown,
   Bot,
 } from "lucide-react";
@@ -31,7 +30,7 @@ export default function HQSidebar() {
   const { signOut } = useClerk();
 
   return (
-    <aside className="w-64 bg-[#0d1424] text-white flex flex-col min-h-screen border-r border-[#1e293b] shrink-0">
+    <aside className="hidden md:flex w-64 bg-[#0d1424] text-white flex-col min-h-[calc(100vh-71px)] border-r border-[#1e293b] shrink-0">
       {/* Brand Header */}
       <div className="p-5 border-b border-[#1e293b] flex items-center gap-3">
         <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center border border-amber-400/30 shadow-inner">
@@ -58,7 +57,7 @@ export default function HQSidebar() {
       </div>
 
       {/* Role Badge */}
-      <div className="mx-4 my-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-amber-500/10 to-indigo-500/10 border border-amber-500/20 flex items-center gap-2.5">
+      <div className="mx-4 my-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-amber-500/10 to-amber-400/10 border border-amber-500/20 flex items-center gap-2.5">
         <div className="w-7 h-7 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-300">
           <ShieldAlert className="w-4 h-4" />
         </div>
@@ -98,33 +97,7 @@ export default function HQSidebar() {
         })}
       </nav>
 
-      {/* Quick Cross-Portal Switcher */}
-      <div className="px-4 py-3 border-t border-[#1e293b] text-xs text-slate-400 space-y-2">
-        <p className="font-semibold text-[11px] uppercase tracking-wider text-slate-500">
-          Directorate Viewports
-        </p>
-        <Link
-          href="/officer"
-          className="flex items-center justify-between text-slate-400 hover:text-amber-300 py-1 transition-colors"
-        >
-          <span>Field Inspector Portal</span>
-          <ExternalLink className="w-3 h-3" />
-        </Link>
-        <Link
-          href="/vendor"
-          className="flex items-center justify-between text-slate-400 hover:text-amber-300 py-1 transition-colors"
-        >
-          <span>Pre-Market Vendor Check</span>
-          <ExternalLink className="w-3 h-3" />
-        </Link>
-        <Link
-          href="/consumer"
-          className="flex items-center justify-between text-slate-400 hover:text-amber-300 py-1 transition-colors"
-        >
-          <span>Consumer Transparency</span>
-          <ExternalLink className="w-3 h-3" />
-        </Link>
-      </div>
+
 
       {/* Sign Out */}
       <div className="p-3 border-t border-[#1e293b]">

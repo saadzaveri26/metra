@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Bell, Mail, ShieldAlert, CheckCircle2, FileText, ArrowRight, ExternalLink, RefreshCw, Inbox } from "lucide-react";
 import Link from "next/link";
+import { API_BASE } from "@/lib/api";
 
 interface NotificationItem {
   id: string;
@@ -29,7 +30,7 @@ export default function NotificationBell() {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:8000/api/v1/notifications/inbox?limit=10");
+      const res = await fetch(`${API_BASE}/api/v1/notifications/inbox?limit=10`);
       if (res.ok) {
         const data = await res.json();
         setNotifications(data);
@@ -102,7 +103,7 @@ export default function NotificationBell() {
 
       {/* Dropdown Flyout */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 max-w-[90vw] bg-white rounded-xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute right-0 mt-2 w-96 max-w-[90vw] bg-white rounded-xl shadow-ux4g-3 border border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
           {/* Header */}
           <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
             <div className="flex items-center gap-2">
@@ -198,7 +199,7 @@ export default function NotificationBell() {
       {/* Quick Preview Modal */}
       {selectedNotification && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-slate-200">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-ux4g-4 flex flex-col border border-slate-200">
             {/* Modal Header */}
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
               <div>

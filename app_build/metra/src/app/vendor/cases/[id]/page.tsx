@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { API_BASE } from "@/lib/api";
 import {
   ArrowLeft,
   FileQuestion,
@@ -58,7 +59,7 @@ export default function VendorCaseDetailPage() {
       }
 
       // Call vendor response endpoint
-      const res = await fetch(`http://localhost:8000/api/v1/vendor/cases/${caseId}/respond`, {
+      const res = await fetch(`${API_BASE}/api/v1/vendor/cases/${caseId}/respond`, {
         method: "POST",
         body: formData,
       });

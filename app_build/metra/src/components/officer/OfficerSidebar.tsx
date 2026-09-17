@@ -32,7 +32,7 @@ export default function OfficerSidebar() {
   const { signOut } = useClerk();
 
   return (
-    <aside className="w-64 bg-[#0a2038] text-white flex flex-col min-h-screen border-r border-[#153457] shrink-0">
+    <aside className="hidden md:flex w-64 bg-[#0a2038] text-white flex-col min-h-[calc(100vh-71px)] border-r border-[#153457] shrink-0">
       {/* Brand Header */}
       <div className="p-5 border-b border-[#16385d] flex items-center gap-3">
         <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center border border-white/20">

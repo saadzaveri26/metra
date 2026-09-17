@@ -17,6 +17,7 @@ from schemas import (
     RegisterVendor,
     RegisterInspector,
     RegisterHQ,
+    OfficerApplicationRequest,
     LoginRequest,
     TokenResponse,
     UserOut,
@@ -95,6 +96,43 @@ def admin_assign_role(
         "assigned_role": target_role,
         "message": f"User {user_id} provisioned with role {target_role}",
     }
+
+
+@router.post("/register/officer-application")
+def submit_officer_application(payload: OfficerApplicationRequest, db: Session = Depends(get_db)):
+    """
+    Registers a new officer application into the pending approval queue.
+    Starts strictly unverified (inspector_verified = False).
+    Must be approved by Headquarters before field enforcement access is enabled.
+    """
+    existing = db.query(User).filter((User.id == payload.user_id) | (User.email == payload.email)).first()
+    if existing:
+        existing.government_id = payload.government_id
+        existing.state_region = payload.state_region
+        existing.designation = payload.designation
+        existing.full_name = payload.full_name
+        existing.role = UserRole.inspector
+        existing.inspector_verified = False
+        db.commit()
+        return {"status": "updated", "id": existing.id, "inspector_verified": False}
+
+    new_user = User(
+        id=payload.user_id,
+        email=payload.email,
+        hashed_password="clerk_managed_auth",
+        full_name=payload.full_name,
+        role=UserRole.inspector,
+        government_id=payload.government_id,
+        designation=payload.designation or "Legal Metrology Inspector",
+        state_region=payload.state_region,
+        department_name="State Legal Metrology Directorate",
+        phone=payload.phone,
+        inspector_verified=False,
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"status": "created", "id": new_user.id, "inspector_verified": False}
 
 
 # Dev / Offline Mock Auth Endpoints

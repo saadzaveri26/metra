@@ -166,11 +166,11 @@ export default function HeadquartersDashboardPage() {
         <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between text-slate-400 mb-3">
             <span className="text-xs font-semibold uppercase tracking-wider">Citizen Leads Queue</span>
-            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
               <Inbox className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-indigo-300 tracking-tight">
+          <div className="text-3xl font-extrabold text-amber-300 tracking-tight">
             {data?.unverified_leads_count || "0"}
           </div>
           <Link
@@ -274,7 +274,7 @@ export default function HeadquartersDashboardPage() {
       </div>
 
       {/* Quick Directorate Action Hub */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/40 border border-slate-800 rounded-xl p-6">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800/60 border border-slate-800 rounded-xl p-6">
         <h2 className="text-base font-bold text-white mb-1">Directorate Governance Shortcuts</h2>
         <p className="text-xs text-slate-400 mb-4">Direct links to statutory enforcement modules</p>
 

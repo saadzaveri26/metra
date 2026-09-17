@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import { AuthenticateWithRedirectCallback, useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -8,10 +8,14 @@ function SSOCallbackContent() {
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const hasExecutedRef = useRef(false);
 
   useEffect(() => {
     async function handleRolePostOAuth() {
-      if (!isLoaded || !isSignedIn || !user) return;
+      // Strictly gate execution until Clerk's user object is fully loaded with a valid ID
+      if (!isLoaded || !isSignedIn || !user?.id) return;
+      if (hasExecutedRef.current) return;
+      hasExecutedRef.current = true;
 
       const currentRole = (user.publicMetadata as any)?.role;
       if (currentRole) {
@@ -56,7 +60,7 @@ function SSOCallbackContent() {
     }
 
     handleRolePostOAuth();
-  }, [isLoaded, isSignedIn, user, router, searchParams]);
+  }, [isLoaded, isSignedIn, user?.id, router, searchParams]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#f7faff] text-[#10243e]">

@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import {
   ShieldAlert,
+  ShieldCheck,
+  Lock,
   Send,
   Sparkles,
   Bot,
@@ -87,8 +89,8 @@ const PERSONAS: {
     name: "HQ Policy Directorate",
     roleTag: "National Policy Analyst",
     icon: Crown,
-    themeColor: "text-purple-400 border-purple-400/40 bg-purple-400/10",
-    badgeBg: "bg-purple-500/20 text-purple-300 border-purple-400/30",
+    themeColor: "text-amber-400 border-amber-400/40 bg-amber-400/10",
+    badgeBg: "bg-amber-500/20 text-amber-300 border-amber-400/30",
     description: "Section 48 compounding ceilings, repeat-offender recidivism bars, and national regulatory harmonization.",
     starterPrompt: "What are the statutory guidelines and limits for compounding offences under Section 48?",
   },
@@ -104,10 +106,10 @@ export default function AskMetraChat({
   compact = false,
 }: AskMetraChatProps) {
   const { getToken } = useAuth();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
 
   const userRole = (user?.publicMetadata?.role as string)?.toLowerCase();
-  const defaultPersona: PersonaType =
+  const activePersona: PersonaType =
     userRole === "officer" || userRole === "inspector"
       ? "officer"
       : userRole === "vendor"
@@ -116,13 +118,12 @@ export default function AskMetraChat({
       ? "headquarters"
       : initialPersona;
 
-  const [activePersona, setActivePersona] = useState<PersonaType>(defaultPersona);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "m-welcome",
       sender: "assistant",
-      persona: defaultPersona,
-      text: `Welcome to **ASK METRA**. I am your conversational statutory assistant grounded in the **Legal Metrology Act, 2009** and the **Packaged Commodities Rules, 2011**.\n\nSelect any role persona tab above to switch perspectives, or ask a specific compliance question below.`,
+      persona: activePersona,
+      text: `Welcome to **ASK METRA**. I am your conversational statutory assistant grounded in the **Legal Metrology Act, 2009** and the **Packaged Commodities Rules, 2011**.\n\nYour session is locked to your verified role credentials. Ask any compliance or statutory question below.`,
       followups: [
         "Can a retailer charge above printed MRP for chilled goods?",
         "What is the minimum font height requirement for a 500g package?",
@@ -131,9 +132,55 @@ export default function AskMetraChat({
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
+
+  // Dynamically personalize welcome prompt once user credentials are fully resolved
+  useEffect(() => {
+    if (isLoaded) {
+      setMessages((prev) => {
+        if (prev.length === 1 && prev[0].id === "m-welcome") {
+          const personaObj = PERSONAS.find((p) => p.id === activePersona) || PERSONAS[2];
+          return [
+            {
+              id: "m-welcome",
+              sender: "assistant",
+              persona: activePersona,
+              text: `Welcome to **ASK METRA**. I am your conversational statutory assistant grounded in the **Legal Metrology Act, 2009** and the **Packaged Commodities Rules, 2011**.\n\nYour session is operating in **${personaObj.name}** mode (strictly locked to your authenticated role). Ask any compliance or statutory question below.`,
+              followups:
+                activePersona === "officer"
+                  ? [
+                      "What is the procedure for establishing a dual MRP violation and seizing products?",
+                      "What evidence is required for a Section 36 charge?",
+                      "How do Section 48 compounding limits apply to repeat violations?",
+                    ]
+                  : activePersona === "vendor"
+                  ? [
+                      "How do I calculate minimum font size for declarations on a 250 cm² panel?",
+                      "Is Unit Sale Price mandatory for pre-packaged commodities under 100g?",
+                      "What are the mandatory manufacturer declarations under Rule 6?",
+                    ]
+                  : activePersona === "headquarters"
+                  ? [
+                      "What are the statutory guidelines and limits for compounding offences under Section 48?",
+                      "What are the criteria for escalating a vendor to repeat-offender status?",
+                      "How are national inspection targets prioritized across zones?",
+                    ]
+                  : [
+                      "Can a shopkeeper charge extra for cooling a soft drink above the printed MRP?",
+                      "What should I do if a packaged item is missing the consumer care number?",
+                      "How do I file a packaging irregularity complaint on METRA?",
+                    ],
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            },
+          ];
+        }
+        return prev;
+      });
+    }
+  }, [isLoaded, activePersona]);
   const [inputQuery, setInputQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [avatarEnabled, setAvatarEnabled] = useState(true);
+  const isAvatarFeatureActive = process.env.NEXT_PUBLIC_ENABLE_AVATAR === "true";
+  const [avatarEnabled, setAvatarEnabled] = useState(false);
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
   const [mouthOpen, setMouthOpen] = useState(0);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
@@ -274,19 +321,37 @@ export default function AskMetraChat({
   };
 
   const handleReset = () => {
+    const personaObj = PERSONAS.find((p) => p.id === activePersona) || PERSONAS[2];
     setMessages([
       {
         id: `m-reset-${Date.now()}`,
         sender: "assistant",
         persona: activePersona,
-        text: `Conversation refreshed in **${
-          PERSONAS.find((p) => p.id === activePersona)?.name
-        }** mode. What statutory question can I answer for you?`,
-        followups: [
-          "Can a retailer charge above printed MRP?",
-          "What are the minimum font height tolerances?",
-          "What are the compounding rules under Section 48?",
-        ],
+        text: `Conversation refreshed in **${personaObj.name}** mode (role-locked). What statutory question can I answer for you?`,
+        followups:
+          activePersona === "officer"
+            ? [
+                "What is the statutory procedure for seizing non-compliant packages under Section 15?",
+                "What evidence is required to establish a dual MRP offence under Rule 6(1)(e)?",
+                "What are the minimum font height tolerances permitted under Rule 9?",
+              ]
+            : activePersona === "vendor"
+            ? [
+                "How do I calculate the minimum font size for my Principal Display Panel (PDP)?",
+                "Is it mandatory to declare Unit Sale Price on multi-piece snack packs?",
+                "What are the mandatory manufacturer declarations under Rule 6?",
+              ]
+            : activePersona === "headquarters"
+            ? [
+                "What are the legal precedents regarding compounding caps under Section 48?",
+                "What threshold designates an entity as a habitual repeat offender?",
+                "How do recent gazette amendments affect digital e-commerce QR labeling?",
+              ]
+            : [
+                "Can a shopkeeper charge extra for cold storage above the printed MRP?",
+                "What should I do if a packaged item does not display a consumer care phone number?",
+                "How do I file a packaging irregularity complaint on METRA?",
+              ],
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       },
     ]);
@@ -296,7 +361,7 @@ export default function AskMetraChat({
 
   return (
     <div
-      className={`flex flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl ${
+      className={`flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-ux4g-4 ${
         compact ? "h-[560px]" : "h-[740px]"
       }`}
     >
@@ -321,18 +386,20 @@ export default function AskMetraChat({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setAvatarEnabled(!avatarEnabled)}
-              className={`p-1.5 px-2.5 rounded-lg border text-xs flex items-center gap-1.5 transition ${
-                avatarEnabled
-                  ? "bg-amber-400/20 text-amber-300 border-amber-400/40 font-bold"
-                  : "bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white border-slate-700"
-              }`}
-              title="Toggle Animated Avatar Companion"
-            >
-              <Bot className="w-3.5 h-3.5 text-amber-400" />
-              <span>{avatarEnabled ? "Avatar: Active" : "Enable Avatar"}</span>
-            </button>
+            {isAvatarFeatureActive && (
+              <button
+                onClick={() => setAvatarEnabled(!avatarEnabled)}
+                className={`p-1.5 px-2.5 rounded-lg border text-xs flex items-center gap-1.5 transition ${
+                  avatarEnabled
+                    ? "bg-amber-400/20 text-amber-300 border-amber-400/40 font-bold"
+                    : "bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white border-slate-700"
+                }`}
+                title="Toggle Animated Avatar Companion"
+              >
+                <Bot className="w-3.5 h-3.5 text-amber-400" />
+                <span>{avatarEnabled ? "Avatar: Active" : "Enable Avatar"}</span>
+              </button>
+            )}
 
             <button
               onClick={handleReset}
@@ -345,36 +412,33 @@ export default function AskMetraChat({
           </div>
         </div>
 
-        {/* Persona Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800">
-          {PERSONAS.map((p) => {
-            const Icon = p.icon;
-            const isSelected = activePersona === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => setActivePersona(p.id)}
-                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold transition text-left ${
-                  isSelected
-                    ? `${p.themeColor} border shadow-sm font-bold`
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{p.name}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Role-Locked Persona Banner */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-900/90 px-3.5 py-2.5 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={`p-2 rounded-lg border shrink-0 ${currentPersonaObj.badgeBg}`}>
+              <currentPersonaObj.icon className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-100">
+                  {currentPersonaObj.name}
+                </span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800/90 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" />
+                  <span>Role Locked</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 truncate max-w-xl">
+                {currentPersonaObj.description}
+              </p>
+            </div>
+          </div>
 
-        {/* Active Persona Explanation Strip */}
-        <div className="text-[11px] text-slate-400 flex items-center justify-between px-1">
-          <span className="truncate max-w-lg">
-            Active Mode: <strong className="text-slate-200">{currentPersonaObj.roleTag}</strong> — {currentPersonaObj.description}
-          </span>
-          <span className="text-[10px] font-mono text-amber-400/80 hidden md:inline">
-            embeddings: sentence-transformers
-          </span>
+          <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400 shrink-0 self-end sm:self-center">
+            <span className="text-amber-400/80">RAG: ChromaDB</span>
+            <span className="text-slate-600">•</span>
+            <span className="text-slate-500">sentence-transformers</span>
+          </div>
         </div>
       </div>
 
@@ -528,8 +592,8 @@ export default function AskMetraChat({
         <div ref={messagesEndRef} />
         </div>
 
-        {/* Side Avatar Companion Panel */}
-        {avatarEnabled && (
+        {/* Side Avatar Companion Panel (Gated behind feature flag) */}
+        {isAvatarFeatureActive && avatarEnabled && (
           <div className="hidden lg:flex flex-col items-center justify-between p-5 bg-slate-950/70 border-l border-slate-800 w-72 shrink-0">
             <div className="text-center space-y-1">
               <span className="text-xs font-bold text-white tracking-wide">Inspector Avatar</span>

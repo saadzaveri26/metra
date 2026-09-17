@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { API_BASE } from "@/lib/api";
 import Image from "next/image";
 import {
   UploadCloud,
@@ -69,7 +70,7 @@ export default function VendorSelfCheckPage() {
       if (listedNetQty) formData.append("listed_net_quantity", listedNetQty);
 
       // Attempt backend scan API
-      const res = await fetch("http://localhost:8000/api/v1/scans", {
+      const res = await fetch(`${API_BASE}/api/v1/scans`, {
         method: "POST",
         body: formData,
       });

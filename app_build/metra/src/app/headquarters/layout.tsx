@@ -1,3 +1,4 @@
+import RoleTopNavbar from "@/components/navigation/RoleTopNavbar";
 import HQSidebar from "@/components/headquarters/HQSidebar";
 
 export const metadata = {
@@ -11,9 +12,10 @@ export default function HeadquartersLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100">
-      <HQSidebar />
-      <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100">
+      <RoleTopNavbar role="headquarters" />
+      <div className="flex-1 flex min-w-0">
+        <HQSidebar />
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">{children}</main>
       </div>
     </div>

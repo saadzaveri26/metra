@@ -15,41 +15,42 @@ export async function POST(req: Request) {
     const body = await req.json();
     const requestedRole = (body.role || "").toLowerCase().trim();
 
-    // Strict role boundary enforcement: public self-service allows ONLY consumer and vendor!
+    // 1. Strict Administrative Boundary: HQ and Officer roles can NEVER be self-assigned via public set-role
     if (
-      requestedRole === "officer" ||
-      requestedRole === "inspector" ||
       requestedRole === "hq" ||
-      requestedRole === "headquarters"
+      requestedRole === "headquarters" ||
+      requestedRole === "officer" ||
+      requestedRole === "inspector"
     ) {
       return NextResponse.json(
         {
           error:
-            "Role elevation forbidden: Officer and Headquarters accounts require administrative provisioning and cannot be self-assigned.",
+            "Role elevation forbidden: Officer and Headquarters accounts cannot be self-assigned. Officer applicants must apply via the verification queue.",
         },
         { status: 403 }
       );
     }
 
-    if (requestedRole !== "consumer" && requestedRole !== "vendor") {
-      return NextResponse.json(
-        { error: "Invalid role specified. Must be 'consumer' or 'vendor'." },
-        { status: 400 }
-      );
+    // 2. Only Consumer and Vendor are permitted self-service roles
+    if (requestedRole === "consumer" || requestedRole === "vendor") {
+      const client = await clerkClient();
+      await client.users.updateUserMetadata(userId, {
+        publicMetadata: {
+          role: requestedRole,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        userId,
+        role: requestedRole,
+      });
     }
 
-    const client = await clerkClient();
-    await client.users.updateUserMetadata(userId, {
-      publicMetadata: {
-        role: requestedRole,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      userId,
-      role: requestedRole,
-    });
+    return NextResponse.json(
+      { error: "Invalid role specified. Only 'consumer' or 'vendor' are permitted." },
+      { status: 400 }
+    );
   } catch (error: any) {
     console.error("Error setting role:", error);
     return NextResponse.json(

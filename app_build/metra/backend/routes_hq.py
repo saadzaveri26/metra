@@ -240,6 +240,25 @@ def verify_officer(
     return {"status": "success", "message": f"Officer verification recorded for {officer_id}."}
 
 
+@router.post("/officers/{officer_id}/reject")
+def reject_officer(
+    officer_id: str,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_roles("headquarters")),
+):
+    """
+    Rejects or revokes statutory field authorization for an officer.
+    Sets inspector_verified = False.
+    """
+    validate_id(officer_id, "officer_id")
+    officer = db.query(User).filter(User.id == officer_id).first()
+    if officer:
+        officer.inspector_verified = False
+        db.commit()
+        return {"status": "success", "message": f"Officer {officer.full_name} authorization revoked/rejected."}
+    return {"status": "success", "message": f"Officer {officer_id} rejection recorded."}
+
+
 @router.get("/sellers/leaderboard", response_model=List[HQSellerLeaderboardItem])
 def get_repeat_offender_leaderboard(
     db: Session = Depends(get_db),

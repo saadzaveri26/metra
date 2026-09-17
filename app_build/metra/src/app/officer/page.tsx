@@ -486,7 +486,7 @@ export default function OfficerDashboard() {
       {/* Inspection Detail Modal */}
       {selectedItem && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-xl max-w-xl w-full p-6 shadow-ux4g-4 border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150">
             <button
               type="button"
               onClick={() => setSelectedItem(null)}
