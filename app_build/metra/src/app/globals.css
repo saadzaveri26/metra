@@ -1,80 +1,290 @@
-/*
- * UX4G Design System
- * Copyright © 2024-2026 Government of India
- * Licensed under the MIT License
- * https://ux4g.gov.in
- */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* ═══ METRA Role Color Tokens (preserved) ═══ */
-  --blue: #0867c9;
-  --blue-dark: #063d78;
-  --blue-light: #eaf4ff;
-  --ink: #10243e;
-  --muted: #62738a;
-  --bg: #f7faff;
-  --white: #fff;
-  --line: #dce7f2;
-  --green: #159a68;
-  --green-light: #e5f8ef;
-  --green-dark: #0e6e4a;
-  --amber: #b9781a;
-  --amber-light: #fff3df;
-  --amber-dark: #c98a1f;
-  --brass: #9a6b12;
-  --brass-light: #faf3e4;
-  --brass-dark: #7a5a0f;
-  --brass-border: #e6d8b8;
-  --navy: #0a2038;
-  --navy-light: #e9edf3;
+  --blue-950: #062c4d;
+  --blue-900: #073b68;
+  --blue-800: #07518f;
+  --blue-700: #0867b5;
+  --blue-600: #1178c7;
+  --blue-100: #e8f3fb;
+  --blue-50: #f3f8fc;
+  --ink: #17324a;
+  --muted: #63788b;
+  --bg: #f5f7f9;
+  --surface: #ffffff;
+  --line: #d7e1e9;
+  --line-dark: #c3d1dc;
+  --focus: rgba(8, 103, 181, .22);
 
-  /* ═══ UX4G Elevation Tokens ═══ */
-  --shadow: 0 18px 50px rgba(21, 62, 105, 0.10);
   --ux4g-shadow-l0: none;
-  --ux4g-shadow-l1: 0px 1px 2px 0px rgba(0,0,0,0.06), 0px 1px 2px 0px rgba(0,0,0,0.06);
-  --ux4g-shadow-l2: 0px 4px 8px 0px rgba(0,0,0,0.08), 0px 1px 2px 0px rgba(0,0,0,0.06);
-  --ux4g-shadow-l3: 0px 8px 16px 0px rgba(0,0,0,0.12), 0px 4px 8px 0px rgba(0,0,0,0.08);
-  --ux4g-shadow-l4: 0px 16px 32px 0px rgba(0,0,0,0.16), 0px 8px 16px 0px rgba(0,0,0,0.12);
+  --ux4g-shadow-l1: 0 1px 2px rgba(15, 47, 72, .05);
+  --ux4g-shadow-l2: 0 3px 10px rgba(15, 47, 72, .07);
+  --ux4g-shadow-l3: 0 8px 22px rgba(15, 47, 72, .09);
 
-  /* ═══ UX4G Radius Tokens ═══ */
-  --ux4g-radius-none: 0px;
   --ux4g-radius-xs: 2px;
   --ux4g-radius-sm: 4px;
-  --ux4g-radius-md: 8px;
-  --ux4g-radius-lg: 12px;
-  --ux4g-radius-xl: 16px;
-  --ux4g-radius-2xl: 24px;
-  --ux4g-radius-full: 9999px;
+  --ux4g-radius-md: 6px;
+  --ux4g-radius-lg: 8px;
+  --ux4g-radius-xl: 10px;
 
-  /* ═══ UX4G Typography Tokens ═══ */
-  --ux4g-font-family-base: "Noto Sans", system-ui, sans-serif;
-  --ux4g-font-family-display: "Noto Sans Display", "Noto Sans", sans-serif;
-  --ux4g-font-weight-regular: 400;
-  --ux4g-font-weight-medium: 500;
-  --ux4g-font-weight-semibold: 600;
-  --ux4g-font-weight-bold: 700;
-  --ux4g-line-height-tight: 1.25;
-  --ux4g-line-height-normal: 1.5;
-  --ux4g-line-height-relaxed: 1.75;
-  --ux4g-line-height-hindi: 1.8;
-  --ux4g-min-font-size: 12px;
-  --ux4g-max-line-width: 720px;
+  --ux4g-font-family-base: "Noto Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ux4g-font-family-display: "Noto Sans Display", "Noto Sans", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--bg);
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: var(--ux4g-font-family-base);
+  margin: 0;
+  min-height: 100vh;
   color: var(--ink);
   background: var(--bg);
-  line-height: var(--ux4g-line-height-normal);
-  min-height: 100vh;
+  font-family: var(--ux4g-font-family-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  color: var(--blue-950);
+  background: #cfe6f7;
+}
+
+button, a, input, textarea, select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a {
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .container-metra {
-  width: min(1160px, 92%);
-  margin-left: auto;
-  margin-right: auto;
+  width: min(1180px, calc(100% - 40px));
+  margin-inline: auto;
+}
+
+/* --------------------------------------------------------------------------
+   Foundations
+   -------------------------------------------------------------------------- */
+
+.bg-white { background-color: var(--surface) !important; }
+
+.rounded-xl { border-radius: var(--ux4g-radius-lg) !important; }
+.rounded-2xl { border-radius: var(--ux4g-radius-xl) !important; }
+.rounded-lg { border-radius: var(--ux4g-radius-md) !important; }
+.rounded-md { border-radius: var(--ux4g-radius-sm) !important; }
+
+.shadow-sm { box-shadow: var(--ux4g-shadow-l1) !important; }
+
+.border-\[\#dce7f2\],
+.border-\[\#d8e2ec\] {
+  border-color: var(--line) !important;
+}
+
+/* Deliberately avoid the common "everything is a card" AI-dashboard treatment. */
+.bg-white.rounded-xl,
+.bg-white.rounded-2xl,
+.bg-white.rounded-lg {
+  border: 1px solid var(--line) !important;
+  box-shadow: var(--ux4g-shadow-l1) !important;
+}
+
+.bg-white.rounded-xl:hover,
+.bg-white.rounded-2xl:hover,
+.bg-white.rounded-lg:hover {
+  border-color: var(--line-dark) !important;
+  box-shadow: var(--ux4g-shadow-l2) !important;
+}
+
+/* Remove decorative card pseudo-elements if the underlying UI happens to use them. */
+.bg-white.rounded-xl::before,
+.bg-white.rounded-2xl::before,
+.bg-white.rounded-lg::before { content: none !important; }
+
+/* --------------------------------------------------------------------------
+   Blue civic palette
+   -------------------------------------------------------------------------- */
+
+.text-emerald-300, .text-emerald-400, .text-emerald-500,
+.text-green-600, .text-green-700, .text-green-800,
+.text-\[\#159a68\], .text-\[\#0e6e4a\] { color: var(--blue-700) !important; }
+
+.bg-emerald-50, .bg-emerald-100, .bg-emerald-500\/10,
+.bg-green-50, .bg-green-100,
+.bg-\[\#e8f8f0\], .bg-\[\#e5f8ef\], .bg-\[\#159a68\] { background-color: var(--blue-100) !important; }
+
+.border-emerald-200, .border-emerald-300, .border-emerald-500\/30,
+.border-green-200, .border-\[\#159a68\] { border-color: #b9d6eb !important; }
+
+.text-red-500, .text-red-600, .text-red-700, .text-red-800,
+.text-\[\#dc2626\], .text-\[\#b91c1c\] { color: var(--blue-800) !important; }
+
+.bg-red-50, .bg-red-100, .bg-red-500\/10, .bg-\[\#fff1f2\] { background-color: #edf5fb !important; }
+.border-red-200, .border-red-300, .border-red-500\/30 { border-color: #bdd7ea !important; }
+
+.text-amber-500, .text-amber-600, .text-amber-700, .text-amber-800,
+.text-amber-900, .text-\[\#e69b00\], .text-\[\#b9781a\],
+.text-\[\#c98a1f\], .text-\[\#ffc038\] { color: var(--blue-800) !important; }
+
+.bg-amber-50, .bg-amber-100, .bg-amber-200, .bg-amber-500\/10,
+.bg-amber-500\/20, .bg-\[\#fef5e7\], .bg-\[\#fff3df\] { background-color: #edf5fb !important; }
+.border-amber-200, .border-amber-300, .border-amber-500\/30,
+.border-\[\#e69b00\]\/40 { border-color: #bdd7ea !important; }
+
+.text-purple-600, .text-purple-700, .text-violet-500, .text-violet-600,
+.text-violet-700, .text-\[\#7c3aed\] { color: var(--blue-700) !important; }
+.bg-purple-50, .bg-violet-50, .bg-violet-500\/10, .bg-\[\#f4effe\] { background-color: #edf5fb !important; }
+
+.bg-\[\#0867c9\], .bg-\[\#0757a8\], .bg-blue-600, .bg-blue-700 { background-color: var(--blue-700) !important; }
+.hover\:bg-\[\#0753a0\]:hover, .hover\:bg-blue-700:hover { background-color: var(--blue-800) !important; }
+
+.bg-\[\#159a68\], .bg-emerald-600, .bg-green-600 { background-color: var(--blue-700) !important; }
+
+/* --------------------------------------------------------------------------
+   Controls — crisp, predictable, keyboard friendly
+   -------------------------------------------------------------------------- */
+
+input, textarea, select {
+  min-height: 40px;
+  color: var(--ink);
+  border-color: var(--line-dark);
+  border-radius: var(--ux4g-radius-md);
+  background: #fff;
+  box-shadow: inset 0 1px 1px rgba(16, 49, 73, .025);
+}
+
+input::placeholder, textarea::placeholder { color: #8496a5; }
+
+button[class*="bg-"], a[class*="bg-"] {
+  letter-spacing: .005em;
+}
+
+button[class*="bg-"]:hover, a[class*="bg-"]:hover {
+  transform: translateY(-1px);
+}
+
+/* --------------------------------------------------------------------------
+   Header / navigation
+   -------------------------------------------------------------------------- */
+
+nav {
+  letter-spacing: .005em;
+  border-bottom-color: var(--line) !important;
+}
+
+nav a { font-weight: 500; }
+
+nav a[aria-current="page"],
+nav a.bg-blue-50,
+nav a.bg-\[\#eaf4ff\] {
+  color: var(--blue-800) !important;
+  background: var(--blue-50) !important;
+  box-shadow: inset 0 -2px 0 var(--blue-700);
+}
+
+hr { border-color: var(--line); }
+
+/* --------------------------------------------------------------------------
+   Hero / page heading surfaces
+   -------------------------------------------------------------------------- */
+
+/* Keep the existing hero structure, but make it read as a designed service
+   header rather than a stock AI gradient card. */
+.bg-gradient-to-br,
+.bg-gradient-to-r {
+  background-image: linear-gradient(115deg, var(--blue-950) 0%, var(--blue-800) 100%) !important;
+}
+
+.from-\[\#0a2038\], .from-\[\#0d2a4d\], .from-\[\#123966\], .from-slate-900 {
+  --tw-gradient-from: var(--blue-950) var(--tw-gradient-from-position) !important;
+}
+
+.via-\[\#0d2a4d\] {
+  --tw-gradient-via: var(--blue-900) var(--tw-gradient-via-position) !important;
+}
+
+.to-\[\#0867c9\], .to-\[\#123966\], .to-blue-600 {
+  --tw-gradient-to: var(--blue-700) var(--tw-gradient-to-position) !important;
+}
+
+.bg-gradient-to-br.text-white,
+.bg-gradient-to-r.text-white {
+  border: 1px solid #1e5f8e !important;
+  box-shadow: var(--ux4g-shadow-l3) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Data tables — dense, legible, operational
+   -------------------------------------------------------------------------- */
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+thead { background: #edf3f7; }
+
+th {
+  color: #3d586c;
+  font-size: .71rem;
+  font-weight: 700;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+td, th { border-bottom: 1px solid var(--line); }
+
+tbody tr { transition: background-color .12s ease; }
+tbody tr:hover { background: #f7fafc; }
+
+/* --------------------------------------------------------------------------
+   Status / utility details
+   -------------------------------------------------------------------------- */
+
+[class*="tracking-wider"] { letter-spacing: .045em; }
+[class*="uppercase"] { letter-spacing: .035em; }
+
+/* Use blue tones for small icon/text accents without adding more visual noise. */
+svg.text-green-500, svg.text-emerald-500, svg.text-red-500,
+svg.text-amber-500, svg.text-purple-500, svg.text-violet-500 {
+  color: var(--blue-700) !important;
+}
+
+.bg-slate-950 { background-color: #061f35 !important; }
+.bg-slate-900\/80 { background-color: rgba(7, 48, 80, .94) !important; }
+.bg-slate-900 { background-color: #073050 !important; }
+.border-slate-800, .border-slate-700 { border-color: #1a4b6d !important; }
+.text-slate-100, .text-slate-200, .text-slate-300 { color: #dbeaf4 !important; }
+.text-slate-400, .text-slate-500 { color: #91aec2 !important; }
+
+img { max-width: 100%; }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: #edf2f6; }
+::-webkit-scrollbar-thumb { background: #b7c9d7; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #91aabd; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .container-metra { width: min(94%, 1180px); }
+  input, textarea, select { min-height: 42px; }
 }

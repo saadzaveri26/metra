@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Search, CheckCircle2, ClipboardList, History, MessageCircleQuestion, ShieldCheck } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -41,9 +42,10 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="/sign-up"
-                className="px-4.5 py-2 text-[14px] font-bold text-white bg-[#0867c9] border border-[#0867c9] rounded-[9px] shadow-[0_8px_20px_rgba(8,103,201,0.2)] hover:-translate-y-0.5 transition-transform"
+                className="inline-flex items-center gap-2 px-6 py-2.5 text-[14px] font-bold text-white bg-[#0867c9] border border-[#0867c9] rounded-[9px] shadow-[0_8px_20px_rgba(8,103,201,0.2)] hover:-translate-y-0.5 transition-transform whitespace-nowrap"
               >
-                Get Started &rarr;
+                <span>Get Started</span>
+                <span aria-hidden="true">&rarr;</span>
               </Link>
             </div>
           </nav>
@@ -114,6 +116,126 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section id="features" className="py-20">
+        <div className="container-metra">
+          <div className="text-center max-w-[720px] mx-auto mb-14">
+            <div className="inline-block bg-[#eaf4ff] text-[#0867c9] border border-[#cfe5fb] rounded-full px-3 py-1 text-[12px] font-extrabold uppercase tracking-wide mb-3">
+              Built for practical inspections
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
+              Everything you need in one compliance workspace
+            </h2>
+            <p className="text-[#62738a] text-[15px]">
+              From scanning and rule reference to history and documentation, METRA brings the inspection
+              workflow together.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                icon: Search,
+                title: "Scan & analyse packages",
+                desc: "Photograph a label and METRA reads the nine declarations the Rules require \u2014 manufacturer, net quantity, MRP, date of packing, country of origin, consumer care and more \u2014 and flags anything missing, wrongly formatted, or in too small a font.",
+              },
+              {
+                icon: CheckCircle2,
+                title: "Rule-guided, not memory-guided",
+                desc: "Every check traces back to a specific rule and section of the Legal Metrology (Packaged Commodities) Rules, 2011 \u2014 the same reference, applied the same way, whether it's an officer's first inspection or their thousandth.",
+              },
+              {
+                icon: ClipboardList,
+                title: "Reports that fill themselves in",
+                desc: "Complainant details, the company being reported, and the specifics of the violation carry straight from the scan into the report \u2014 officers check it and file it, instead of retyping what METRA already found.",
+              },
+              {
+                icon: History,
+                title: "A record for every company",
+                desc: "Every mismatch is logged against the company, not just the scan. A pattern of violations follows a manufacturer across inspections and across officers.",
+              },
+              {
+                icon: MessageCircleQuestion,
+                title: "Ask METRA",
+                desc: "A conversational assistant for vendors and inspectors, grounded in the actual text of the Act and Rules \u2014 ask what a clause means, not just what it says.",
+              },
+              {
+                icon: ShieldCheck,
+                title: "Pre-market self-check",
+                desc: "Vendors can run the same check on their own packaging before it ever reaches a shelf, and catch a labelling issue while it's still cheap to fix.",
+              },
+            ].map((feature) => (
+              <article
+                key={feature.title}
+                className="bg-white border border-[#dce7f2] rounded-[15px] p-6 shadow-[0_7px_25px_rgba(20,65,105,0.035)] hover:-translate-y-1 hover:shadow-[0_18px_50px_rgba(21,62,105,0.10)] transition-all"
+              >
+                <div className="w-[45px] h-[45px] rounded-[11px] bg-[#eaf4ff] text-[#0867c9] grid place-items-center mb-4">
+                  <feature.icon className="w-[22px] h-[22px]" />
+                </div>
+                <h3 className="text-[17px] font-bold mb-1.5">{feature.title}</h3>
+                <p className="text-[14px] text-[#62738a] leading-relaxed">{feature.desc}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* WORKFLOW */}
+      <section id="process" className="py-20 bg-[#f7fbff] border-y border-[#dce7f2]">
+        <div className="container-metra">
+          <div className="text-center max-w-[720px] mx-auto mb-14">
+            <div className="inline-block bg-[#eaf4ff] text-[#0867c9] border border-[#cfe5fb] rounded-full px-3 py-1 text-[12px] font-extrabold uppercase tracking-wide mb-3">
+              Simple workflow
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
+              From package to inspection record
+            </h2>
+            <p className="text-[#62738a] text-[15px]">
+              Inspections start the way they always have &mdash; a planned route, a licence renewal, a complaint
+              through the National Consumer Helpline, a tip-off, a festive-season drive, or a random check.
+              METRA doesn't change when an inspection happens, only what happens once the officer is there.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                number: "1",
+                title: "Scan or upload",
+                desc: "Capture a clear image of the product package or label using a camera or upload.",
+              },
+              {
+                number: "2",
+                title: "Analyse compliance",
+                desc: "METRA checks the visible label information and highlights declarations that need attention.",
+              },
+              {
+                number: "3",
+                title: "Review & document",
+                desc: "Review the result, use company history and prepare the relevant inspection documentation.",
+              },
+            ].map((step) => (
+              <article
+                key={step.number}
+                className="relative bg-white border border-[#dce7f2] rounded-[15px] p-7"
+              >
+                <div className="w-[30px] h-[30px] rounded-full bg-[#0867c9] text-white grid place-items-center text-[12px] font-extrabold mb-5">
+                  {step.number}
+                </div>
+                <h3 className="text-[17px] font-bold mb-1.5">{step.title}</h3>
+                <p className="text-[14px] text-[#62738a] leading-relaxed">{step.desc}</p>
+              </article>
+            ))}
+          </div>
+
+          <p className="max-w-[700px] mx-auto text-center text-[13px] text-[#62738a] border-t border-[#dce7f2] mt-10 pt-7">
+            If a violation holds up, what follows &mdash; seizure or sealing, notice to the trader, prosecution,
+            penalties &mdash; is the same process it's always been. METRA's part ends at giving the officer an
+            accurate, well-documented starting point, and keeping the record for next time.
+          </p>
         </div>
       </section>
 
