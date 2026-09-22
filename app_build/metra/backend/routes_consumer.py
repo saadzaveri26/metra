@@ -138,6 +138,8 @@ async def lookup_product_compliance_and_health(
         brand_manufacturer=brand,
         category=category,
         mandatory_label_info=mandatory_info,
+        declarations=mandatory_info,
+        compliance_status="REFERENCE_ONLY",
         nutrition=nutrition_raw,
         has_active_recall=has_active_recall,
         recall_warning=recall_warning,

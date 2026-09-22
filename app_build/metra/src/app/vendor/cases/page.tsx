@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 import {
   FileQuestion,
   AlertTriangle,
@@ -12,7 +13,9 @@ import {
   Search,
   Building,
   Filter,
+  RefreshCw,
 } from "lucide-react";
+import { API_BASE } from "@/lib/api";
 
 interface NoticeItem {
   id: string;
@@ -27,44 +30,60 @@ interface NoticeItem {
 }
 
 export default function VendorCasesPage() {
+  const { getToken } = useAuth();
   const [filter, setFilter] = useState<"all" | "open" | "under_review" | "closed">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [notices, setNotices] = useState<NoticeItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [notices] = useState<NoticeItem[]>([
-    {
-      id: "case-01-suvidha",
-      case_number: "INQ-2026-MUM-0891",
-      product_name: "Suvidha Roasted Chana Pouch 500g",
-      category: "Packaged Food",
-      opened_at: "13 Sep 2026",
-      status: "open",
-      statutory_grounds: "Rule 6(1)(da) & Rule 7: Missing customer care telephone helpline and sub-standard numeral height on Net Qty.",
-      inspected_region: "Maharashtra (Mumbai Zone 2)",
-      risk_score: 55,
-    },
-    {
-      id: "case-02-suvidha",
-      case_number: "INQ-2026-PUN-0744",
-      product_name: "Suvidha Organic Mustard Oil 1L",
-      category: "Edible Oils",
-      opened_at: "02 Sep 2026",
-      status: "under_review",
-      statutory_grounds: "Rule 6(11): Unit Sale Price (USP) font height below mandatory 2.0 mm threshold.",
-      inspected_region: "Maharashtra (Pune Division)",
-      risk_score: 40,
-    },
-    {
-      id: "case-03-suvidha",
-      case_number: "INQ-2026-THN-0512",
-      product_name: "Suvidha Fortified Wheat Flour 5kg",
-      category: "Packaged Food",
-      opened_at: "18 Aug 2026",
-      status: "closed",
-      statutory_grounds: "Rule 6(1)(a): Verification of manufacturing premises address completed. Clarification accepted.",
-      inspected_region: "Maharashtra (Thane District)",
-      risk_score: 15,
-    },
-  ]);
+  const fetchCases = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/vendor/cases`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const rawCases = await res.json();
+        const mapped: NoticeItem[] = (rawCases || []).map((c: any) => {
+          const d = c.opened_at ? new Date(c.opened_at) : new Date();
+          const grounds = (c.findings || []).map((f: any) => `${f.rule_id}: ${f.finding}`).join("; ") ||
+            c.statutory_grounds || "Statutory compliance review required.";
+
+          let statusNorm: NoticeItem["status"] = "open";
+          if (c.status === "closed" || c.status === "compounded" || c.status === "dismissed") {
+            statusNorm = "closed";
+          } else if (c.status === "response_submitted" || c.status === "under_review") {
+            statusNorm = "under_review";
+          }
+
+          return {
+            id: c.id,
+            case_number: c.case_number || `INQ-${c.id.slice(-6).toUpperCase()}`,
+            product_name: c.product_name || "Packaged Commodity",
+            category: c.category || "Packaged Goods",
+            opened_at: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+            status: statusNorm,
+            statutory_grounds: grounds,
+            inspected_region: c.jurisdiction || "Assigned Division",
+            risk_score: Math.round(c.risk_score || 0),
+          };
+        });
+        setNotices(mapped);
+      } else {
+        setNotices([]);
+      }
+    } catch (err) {
+      console.error("Failed to load vendor cases:", err);
+      setNotices([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getToken]);
+
+  useEffect(() => {
+    fetchCases();
+  }, [fetchCases]);
 
   const filteredNotices = notices.filter((n) => {
     if (filter !== "all" && n.status !== filter) return false;
@@ -78,6 +97,10 @@ export default function VendorCasesPage() {
     }
     return true;
   });
+
+  const openCount = notices.filter((n) => n.status === "open").length;
+  const underReviewCount = notices.filter((n) => n.status === "under_review").length;
+  const closedCount = notices.filter((n) => n.status === "closed").length;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
@@ -94,7 +117,9 @@ export default function VendorCasesPage() {
 
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#fef5e7] border border-[#e69b00]/30 text-[#b87c00] text-xs font-semibold">
           <Clock className="w-4 h-4" />
-          <span>1 Notice Awaiting Response</span>
+          <span>
+            {isLoading ? "..." : openCount === 1 ? "1 Notice Awaiting Response" : `${openCount} Notices Awaiting Response`}
+          </span>
         </div>
       </div>
 
@@ -112,7 +137,7 @@ export default function VendorCasesPage() {
       {/* Filter and Search Bar */}
       <div className="bg-white rounded-xl p-4 border border-[#dce7f2] shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-full sm:w-auto">
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-full sm:w-auto flex-wrap">
           <button
             onClick={() => setFilter("all")}
             className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
@@ -127,7 +152,7 @@ export default function VendorCasesPage() {
               filter === "open" ? "bg-white text-amber-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            Action Required ({notices.filter((n) => n.status === "open").length})
+            Action Required ({openCount})
           </button>
           <button
             onClick={() => setFilter("under_review")}
@@ -135,7 +160,7 @@ export default function VendorCasesPage() {
               filter === "under_review" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            Under Review ({notices.filter((n) => n.status === "under_review").length})
+            Under Review ({underReviewCount})
           </button>
           <button
             onClick={() => setFilter("closed")}
@@ -143,83 +168,119 @@ export default function VendorCasesPage() {
               filter === "closed" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            Resolved ({notices.filter((n) => n.status === "closed").length})
+            Resolved ({closedCount})
           </button>
         </div>
 
-        {/* Search Input */}
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search notice ID or product..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0867c9]"
-          />
+        {/* Search */}
+        <div className="flex items-center gap-2 w-full sm:w-64">
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search notices..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0867c9] focus:bg-white"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={fetchCases}
+            title="Refresh notices"
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#0867c9] hover:bg-slate-50 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+          </button>
         </div>
       </div>
 
       {/* Notices List */}
       <div className="space-y-3">
-        {filteredNotices.map((notice) => (
-          <div
-            key={notice.id}
-            className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm hover:border-[#0867c9]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-          >
-            <div className="space-y-1.5 max-w-2xl">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-xs text-[#0867c9] tracking-wide">
-                  {notice.case_number}
-                </span>
-                <span className="text-slate-300">·</span>
-                <span className="text-xs text-slate-500 font-medium">{notice.inspected_region}</span>
-                <span className="text-slate-300">·</span>
-                <span className="text-xs text-slate-400 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {notice.opened_at}
-                </span>
+        {isLoading ? (
+          <div className="bg-white rounded-xl p-12 text-center border border-[#dce7f2]">
+            <div className="flex items-center justify-center gap-2 text-slate-400 text-xs">
+              <RefreshCw className="w-4 h-4 animate-spin text-[#0867c9]" />
+              <span>Loading compliance notices...</span>
+            </div>
+          </div>
+        ) : filteredNotices.length === 0 ? (
+          <div className="bg-white rounded-xl p-12 text-center border border-[#dce7f2]">
+            <div className="max-w-sm mx-auto flex flex-col items-center">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-3">
+                <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-bold text-[#10243e]">{notice.product_name}</h3>
-              <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                {notice.statutory_grounds}
+              <h4 className="font-bold text-sm text-[#10243e]">
+                {searchQuery || filter !== "all"
+                  ? "No matching compliance notices"
+                  : "No compliance inquiries or notices"}
+              </h4>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                {searchQuery || filter !== "all"
+                  ? "Try changing your search terms or selecting 'All Notices'."
+                  : "Your business has zero active compliance citations or inquiries under the Legal Metrology Act, 2009."}
               </p>
             </div>
+          </div>
+        ) : (
+          filteredNotices.map((n) => (
+            <div
+              key={n.id}
+              className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm hover:border-[#0867c9]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
+              <div className="space-y-1.5 max-w-2xl">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs font-bold text-[#0867c9]">{n.case_number}</span>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-xs font-semibold text-slate-700">{n.product_name}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
+                    {n.category}
+                  </span>
+                </div>
 
-            <div className="flex items-center gap-4 shrink-0 justify-between md:justify-end">
-              {/* Status Badge */}
-              <div>
-                {notice.status === "open" && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#fef5e7] text-[#e69b00] border border-[#e69b00]/30">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    Response Required
-                  </span>
-                )}
-                {notice.status === "under_review" && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#eaf4ff] text-[#0867c9] border border-[#0867c9]/30">
+                <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
+                  <span className="font-semibold text-slate-800">Alleged Statutory Non-Compliance: </span>
+                  {n.statutory_grounds}
+                </p>
+
+                <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-1">
+                  <span>Issued: {n.opened_at}</span>
+                  <span>Jurisdiction: {n.inspected_region}</span>
+                  <span>Risk Score: {n.risk_score}/100</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 self-end md:self-center">
+                {n.status === "open" && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                     <Clock className="w-3.5 h-3.5" />
-                    Under Review
+                    Action Required
                   </span>
                 )}
-                {notice.status === "closed" && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#e8f8f0] text-[#159a68] border border-[#159a68]/30">
+                {n.status === "under_review" && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    <Clock className="w-3.5 h-3.5" />
+                    Officer Review
+                  </span>
+                )}
+                {n.status === "closed" && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Resolved
                   </span>
                 )}
-              </div>
 
-              {/* Action Button */}
-              <Link
-                href={`/vendor/cases/${notice.id}`}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0867c9] hover:bg-[#0753a0] text-white text-xs font-semibold shadow transition-colors"
-              >
-                <span>{notice.status === "open" ? "Respond to Notice" : "View Case Record"}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+                <Link
+                  href={`/vendor/cases/${n.id}`}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#0867c9] hover:bg-[#0753a0] text-white text-xs font-semibold shadow transition-colors"
+                >
+                  <span>{n.status === "open" ? "Respond" : "View Docket"}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

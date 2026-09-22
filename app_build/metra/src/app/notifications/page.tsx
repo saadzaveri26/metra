@@ -53,7 +53,7 @@ export default function NotificationsPage() {
   const fetchInbox = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/v1/notifications/inbox?limit=100`);
+      const res = await fetch(`${API_BASE}/notifications/inbox?limit=100`);
       if (res.ok) {
         const data: NotificationItem[] = await res.json();
         setNotifications(data);
@@ -90,7 +90,7 @@ export default function NotificationsPage() {
         recipientName = "Inspector Vikram Patel";
       }
 
-      const res = await fetch(`${API_BASE}/api/v1/notifications/send-test`, {
+      const res = await fetch(`${API_BASE}/notifications/send-test`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -118,7 +118,7 @@ export default function NotificationsPage() {
     if (!confirm("Are you sure you want to clear all test emails from the demo inbox?")) return;
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/v1/notifications/clear`, {
+      const res = await fetch(`${API_BASE}/notifications/clear`, {
         method: "POST",
       });
       if (res.ok) {

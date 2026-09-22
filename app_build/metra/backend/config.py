@@ -54,9 +54,9 @@ class Settings:
     FROM_EMAIL: str = os.getenv("METRA_FROM_EMAIL", "notifications@metra.gov.in")
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
 
-    # scan_id / case_id format enforced everywhere an ID is used to
+    # scan_id / case_id / user_id format enforced everywhere an ID is used to
     # resolve a file path, per the security baseline.
-    ID_REGEX: str = r"^[A-Za-z0-9\-]{8,64}$"
+    ID_REGEX: str = r"^[A-Za-z0-9_\-]{3,64}$"
 
 
 settings = Settings()

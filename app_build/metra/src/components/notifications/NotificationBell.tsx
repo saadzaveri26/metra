@@ -30,7 +30,7 @@ export default function NotificationBell() {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/v1/notifications/inbox?limit=10`);
+      const res = await fetch(`${API_BASE}/notifications/inbox?limit=10`);
       if (res.ok) {
         const data = await res.json();
         setNotifications(data);

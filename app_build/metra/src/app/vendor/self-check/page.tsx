@@ -70,7 +70,7 @@ export default function VendorSelfCheckPage() {
       if (listedNetQty) formData.append("listed_net_quantity", listedNetQty);
 
       // Attempt backend scan API
-      const res = await fetch(`${API_BASE}/api/v1/scans`, {
+      const res = await fetch(`${API_BASE}/scans`, {
         method: "POST",
         body: formData,
       });

@@ -102,7 +102,7 @@ export default function HQSidebar() {
       {/* Sign Out */}
       <div className="p-3 border-t border-[#1e293b]">
         <button
-          onClick={() => signOut({ redirectUrl: "/" })}
+          onClick={() => signOut({ redirectUrl: "/sign-in" })}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
         >
           <LogOut className="w-4 h-4" />

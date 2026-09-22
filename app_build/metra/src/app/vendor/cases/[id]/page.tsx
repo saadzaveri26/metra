@@ -59,7 +59,7 @@ export default function VendorCaseDetailPage() {
       }
 
       // Call vendor response endpoint
-      const res = await fetch(`${API_BASE}/api/v1/vendor/cases/${caseId}/respond`, {
+      const res = await fetch(`${API_BASE}/vendor/cases/${caseId}/respond`, {
         method: "POST",
         body: formData,
       });

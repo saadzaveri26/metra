@@ -47,7 +47,7 @@ export default function HQHeader({ title, subtitle, actions }: HQHeaderProps) {
             </div>
           </div>
           <UserButton
-            afterSignOutUrl="/"
+            userProfileMode="modal"
             appearance={{
               elements: {
                 avatarBox: "w-8 h-8 ring-2 ring-amber-400/30",

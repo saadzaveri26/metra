@@ -136,7 +136,7 @@ export default function OfficerScanPage() {
       if (listedMrp) formData.append("listed_mrp", listedMrp);
       if (listedNetQty) formData.append("listed_net_quantity", listedNetQty);
 
-      const response = await fetch(`${API_BASE}/api/v1/scans`, {
+      const response = await fetch(`${API_BASE}/scans`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
@@ -150,138 +150,8 @@ export default function OfficerScanPage() {
       const data: ScanResult = await response.json();
       setScanResult(data);
     } catch (err: any) {
-      console.warn("Backend API error or unavailable; generating verified demonstration analysis:", err);
-      // Fallback deterministic inspection result for demo consistency
-      const demoResult: ScanResult = {
-        id: "SCN-" + Math.random().toString(36).substring(2, 10).toUpperCase(),
-        status: "completed",
-        compliance_summary: {
-          overall_status: listedMrp && parseFloat(listedMrp) !== 189 ? "NON_COMPLIANT" : "NEEDS_REVIEW",
-          total_fields_checked: 9,
-          compliant_count: 6,
-          violations_count: listedMrp && parseFloat(listedMrp) !== 189 ? 1 : 0,
-          review_count: 3,
-        },
-        risk_score: listedMrp && parseFloat(listedMrp) !== 189 ? 72 : 25,
-        mismatch_flags:
-          listedMrp && parseFloat(listedMrp) !== 189
-            ? [
-                {
-                  field: "mrp",
-                  on_label_value: "189.00",
-                  listed_value: listedMrp,
-                  finding: `Listed MRP (₹${listedMrp}) does not match physical label MRP (₹189.00). Violation of PCR 2011 Rule 6(1)(e).`,
-                },
-              ]
-            : [],
-        compliance_results: {
-          manufacturer: {
-            status: "COMPLIANT",
-            rule_reference: "Rule 6(1)(a)",
-            rule_description: "Name and complete address of the manufacturer, packer or importer.",
-            act_section: "Section 36(1), Legal Metrology Act, 2009",
-            findings: "Valid manufacturer details: 'Wholesome Foods Pvt. Ltd., MIDC Pune 411019'.",
-            penalty_clause: "Fine up to ₹25,000 for 1st offence, up to ₹50,000 for 2nd offence.",
-            ai_value: "Wholesome Foods Pvt. Ltd., Plot 12, MIDC, Pune 411019",
-            effective_value: "Wholesome Foods Pvt. Ltd., Plot 12, MIDC, Pune 411019",
-            is_overridden: false,
-          },
-          country_of_origin: {
-            status: isImported ? "NON_COMPLIANT" : "COMPLIANT",
-            rule_reference: "Rule 6(1)(aa)",
-            rule_description: "Country of origin or manufacture for imported commodities.",
-            act_section: "Section 36(1), Legal Metrology Act, 2009",
-            findings: isImported
-              ? "Commodity marked as imported but missing explicit Country of Origin declaration."
-              : "Domestic commodity; Rule 6(1)(aa) exemption applied.",
-            penalty_clause: "Fine up to ₹25,000 for 1st offence.",
-            ai_value: null,
-            effective_value: null,
-            is_overridden: false,
-          },
-          generic_name: {
-            status: "COMPLIANT",
-            rule_reference: "Rule 6(1)(b)",
-            rule_description: "Common or generic name of the commodity contained in package.",
-            act_section: "Section 36(1), Legal Metrology Act, 2009",
-            findings: "Generic commodity identity identified: 'Refined Sunflower Oil'.",
-            penalty_clause: "Fine up to ₹25,000 for 1st offence.",
-            ai_value: "Refined Sunflower Oil",
-            effective_value: "Refined Sunflower Oil",
-            is_overridden: false,
-          },
-          net_quantity: {
-            status: "NEEDS_REVIEW",
-            rule_reference: "Rule 6(1)(c) & Rule 12",
-            rule_description: "Net quantity in terms of standard unit of weight or measure.",
-            act_section: "Section 36(1), Legal Metrology Act, 2009",
-            findings: "Net quantity '1 L' detected. Font height ~2.2mm requires physical gauge confirmation under Table I.",
-            penalty_clause: "Fine up to ₹25,000 for 1st offence.",
-            ai_value: "1 L",
-            effective_value: "1 L",
-            is_overridden: false,
-          },
-          manufacture_date: {
-            status: "COMPLIANT",
-            rule_reference: "Rule 6(1)(d)",
-            rule_description: "Month and year in which commodity is manufactured or packed.",
-            act_section: "Section 36(1), Legal Metrology Act, 2009",
-            findings: "Valid packing date detected: '07/2026'.",
-            penalty_clause: "Fine up to ₹25,000 for 1st offence.",
-            ai_value: "07/2026",
-            effective_value: "07/2026",
-            is_overridden: false,
-          },
-          best_before: {
-            status: "NEEDS_REVIEW",
-            rule_reference: "Rule 6(1)(d)",
-            rule_description: "Best before or use by date for perishable/consumer commodities.",
-            act_section: "Section 36(1), Legal Metrology Act, 2009",
-            findings: "Best before duration reference detected but expiry month requires manual visual check.",
-            penalty_clause: "Fine up to ₹25,000 for 1st offence.",
-            ai_value: "Best before 9 months from mfg",
-            effective_value: "Best before 9 months from mfg",
-            is_overridden: false,
-          },
-          mrp: {
-            status: listedMrp && parseFloat(listedMrp) !== 189 ? "NON_COMPLIANT" : "COMPLIANT",
-            rule_reference: "Rule 6(1)(e)",
-            rule_description: "Retail sale price with 'inclusive of all taxes' declaration.",
-            act_section: "Section 36(1), Legal Metrology Act, 2009",
-            findings:
-              listedMrp && parseFloat(listedMrp) !== 189
-                ? `Mismatch: Physical label shows ₹189.00 but listed online at ₹${listedMrp}.`
-                : "Valid MRP ₹189.00 inclusive of all taxes.",
-            penalty_clause: "Fine up to ₹25,000 for 1st offence, up to ₹50,000 for 2nd offence.",
-            ai_value: "₹ 189.00 incl. of all taxes",
-            effective_value: "₹ 189.00 incl. of all taxes",
-            is_overridden: false,
-          },
-          unit_sale_price: {
-            status: "NEEDS_REVIEW",
-            rule_reference: "Rule 6(11)",
-            rule_description: "Unit sale price declared in rupees per g, kg, ml, or litre.",
-            act_section: "Section 36(1), Legal Metrology Act, 2009",
-            findings: "Unit Sale Price per 100ml not explicitly separated from total MRP.",
-            penalty_clause: "Fine up to ₹25,000 for 1st offence.",
-            ai_value: null,
-            effective_value: null,
-            is_overridden: false,
-          },
-          consumer_care: {
-            status: "COMPLIANT",
-            rule_reference: "Rule 6(1)(f)",
-            rule_description: "Name, address, telephone number, and email of consumer care executive.",
-            act_section: "Section 36(1), Legal Metrology Act, 2009",
-            findings: "Complete customer care details: care@wholesomefoods.example, 1800-000-1234.",
-            penalty_clause: "Fine up to ₹25,000 for 1st offence.",
-            ai_value: "care@wholesomefoods.example, 1800-000-1234",
-            effective_value: "care@wholesomefoods.example, 1800-000-1234",
-            is_overridden: false,
-          },
-        },
-      };
-      setScanResult(demoResult);
+      console.error("Backend scan analysis error:", err);
+      setErrorMessage(err.message || "Package analysis failed. Please verify the backend is running.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -310,7 +180,7 @@ export default function OfficerScanPage() {
         ],
       };
 
-      const res = await fetch(`${API_BASE}/api/v1/scans/${scanResult.id}/override`, {
+      const res = await fetch(`${API_BASE}/scans/${scanResult.id}/override`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

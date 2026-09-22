@@ -231,7 +231,7 @@ export default function SignInPage() {
                   <button
                     type="button"
                     onClick={async () => {
-                      await signOut();
+                      await signOut({ redirectUrl: "/sign-in" });
                       setError(null);
                     }}
                     className="px-2.5 py-1 bg-white border border-[#b8daff] text-[#0867c9] font-bold text-[11px] rounded hover:bg-[#f0f7ff] transition-colors"

@@ -43,7 +43,7 @@ export default function ConsumerReportPage() {
       if (brandManufacturer.trim()) formData.append("brand_manufacturer", brandManufacturer.trim());
       if (evidenceFile) formData.append("evidence_image", evidenceFile);
 
-      const res = await fetch(`${API_BASE}/api/v1/consumer/reports`, {
+      const res = await fetch(`${API_BASE}/consumer/reports`, {
         method: "POST",
         body: formData,
       });

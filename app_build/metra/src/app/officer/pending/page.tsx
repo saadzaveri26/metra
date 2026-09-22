@@ -60,8 +60,7 @@ export default function OfficerPendingPage() {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push("/sign-in");
+    await signOut({ redirectUrl: "/sign-in" });
   };
 
   return (

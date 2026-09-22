@@ -26,7 +26,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      signInFallbackRedirectUrl="/"
+      signUpFallbackRedirectUrl="/"
+      afterSignOutUrl="/sign-in"
+    >
       <html lang="en" className={notoSans.variable}>
         <body className={`${notoSans.className} antialiased min-h-screen`}>{children}</body>
       </html>

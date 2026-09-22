@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { API_BASE } from "@/lib/api";
+
 
 export async function POST(req: Request) {
   try {
@@ -56,7 +58,7 @@ export async function POST(req: Request) {
 
     // Enqueue applicant into Backend HQ Officer verification roster
     try {
-      await fetch("http://127.0.0.1:8000/api/v1/auth/register/officer-application", {
+      await fetch(`${API_BASE}/auth/register/officer-application`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

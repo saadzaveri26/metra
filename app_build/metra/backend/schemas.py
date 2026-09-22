@@ -224,10 +224,9 @@ class ConsumerLookupOut(BaseModel):
     product_name: str
     brand_manufacturer: str
     category: str
-    # NOTE: compliance_status was removed — a barcode-only lookup cannot determine
-    # whether mandatory label declarations are actually present/compliant on the
-    # physical package. That requires an officer's OCR scan or physical inspection.
     mandatory_label_info: List[ConsumerDeclarationItem]
+    declarations: Optional[List[ConsumerDeclarationItem]] = None
+    compliance_status: Optional[str] = "REFERENCE_ONLY"
     nutrition: NutritionProfile
     has_active_recall: bool = False
     recall_warning: Optional[str] = None

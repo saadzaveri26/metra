@@ -5,9 +5,14 @@ strict ID validation before using any user-supplied ID in a file path,
 and a resolve()/is_relative_to() check before ever touching disk with it.
 """
 import re
+import time
+import json
+import urllib.request
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Dict, Any
+
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -117,25 +122,87 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         )
 
 
+logger = logging.getLogger("metra.security")
+_CLERK_USER_CACHE: Dict[str, tuple[float, Dict[str, Any]]] = {}
+_CACHE_TTL_SECONDS = 60.0
+
+
+def fetch_clerk_user_data(user_id: str) -> Dict[str, Any]:
+    """
+    Fetches user public metadata and profile directly from Clerk REST API.
+    Uses an in-memory TTL cache to minimize latency while keeping roles fresh.
+    """
+    if not settings.CLERK_SECRET_KEY or not user_id.startswith("user_"):
+        return {}
+
+    now = time.time()
+    if user_id in _CLERK_USER_CACHE:
+        cached_time, cached_data = _CLERK_USER_CACHE[user_id]
+        if now - cached_time < _CACHE_TTL_SECONDS:
+            return cached_data
+
+    try:
+        req = urllib.request.Request(
+            f"https://api.clerk.com/v1/users/{user_id}",
+            headers={
+                "Authorization": f"Bearer {settings.CLERK_SECRET_KEY}",
+                "User-Agent": "metra-backend",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=4.0) as resp:
+            data = json.loads(resp.read().decode())
+            _CLERK_USER_CACHE[user_id] = (now, data)
+            return data
+    except Exception as e:
+        logger.warning("Failed to fetch Clerk user %s metadata: %s", user_id, e)
+        return {}
+
+
 def _normalize_claims(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Normalizes Clerk user claims.
     Extracts role from 'role', or nested 'public_metadata.role' / 'metadata.role'.
+    If role is missing in JWT (default Clerk session token), falls back to fetching
+    from Clerk API using CLERK_SECRET_KEY so authorized users are never rejected.
     """
+    sub = payload.get("sub") or ""
     role = (
         payload.get("role")
         or payload.get("public_metadata", {}).get("role")
         or payload.get("metadata", {}).get("role")
     )
+    email = payload.get("email")
+    full_name = payload.get("name") or payload.get("full_name")
+    state_region = payload.get("state_region")
+
+    # If role claim is not present in token JWT (default Clerk session token behavior),
+    # fetch directly from Clerk public_metadata so users are never locked out
+    if not role and sub.startswith("user_") and settings.CLERK_SECRET_KEY:
+        clerk_data = fetch_clerk_user_data(sub)
+        if clerk_data:
+            public_meta = clerk_data.get("public_metadata", {})
+            role = public_meta.get("role")
+            if not email:
+                email = clerk_data.get("email_addresses", [{}])[0].get("email_address")
+            if not full_name:
+                fn = clerk_data.get("first_name") or ""
+                ln = clerk_data.get("last_name") or ""
+                full_name = f"{fn} {ln}".strip() or None
+            if not state_region:
+                state_region = public_meta.get("state_region")
+
+    if role:
+        role = str(role).lower().strip()
 
     return {
-        "sub": payload.get("sub"),
+        "sub": sub,
         "role": role,
-        "email": payload.get("email"),
-        "full_name": payload.get("name") or payload.get("full_name"),
-        "state_region": payload.get("state_region"),
+        "email": email,
+        "full_name": full_name,
+        "state_region": state_region,
         "raw_claims": payload,
     }
+
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:

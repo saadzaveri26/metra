@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { API_BASE } from "@/lib/api";
 import HQHeader from "@/components/headquarters/HQHeader";
+
 import {
   Users2,
   CheckCircle2,
@@ -40,7 +42,7 @@ export default function HQOfficersPage() {
     setLoading(true);
     try {
       const token = await getToken();
-      const res = await fetch("http://127.0.0.1:8000/api/v1/hq/officers", {
+      const res = await fetch(`${API_BASE}/hq/officers`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
@@ -124,14 +126,17 @@ export default function HQOfficersPage() {
 
       // 2. Call backend relational DB endpoint
       const token = await getToken();
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/hq/officers/${officerId}/verify`, {
+      const res = await fetch(`${API_BASE}/hq/officers/${officerId}/verify`, {
         method: "POST",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 
-      if (!res.ok) throw new Error("Failed to verify officer");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.detail || errJson?.message || `Failed to verify officer (HTTP ${res.status})`);
+      }
       const data = await res.json();
 
       setOfficers((prev) =>

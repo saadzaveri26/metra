@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
+import { API_BASE } from "@/lib/api";
+
 import {
   ShieldAlert,
   ShieldCheck,
@@ -262,7 +264,7 @@ export default function AskMetraChat({
 
     try {
       const token = await getToken();
-      const res = await fetch("http://127.0.0.1:8000/api/v1/assistant/chat", {
+      const res = await fetch(`${API_BASE}/assistant/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

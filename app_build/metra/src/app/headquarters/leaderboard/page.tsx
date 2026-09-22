@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { API_BASE } from "@/lib/api";
 import HQHeader from "@/components/headquarters/HQHeader";
+
 import {
   Trophy,
   AlertTriangle,
@@ -36,7 +38,7 @@ export default function HQLeaderboardPage() {
     setLoading(true);
     try {
       const token = await getToken();
-      const res = await fetch("http://127.0.0.1:8000/api/v1/hq/sellers/leaderboard", {
+      const res = await fetch(`${API_BASE}/hq/sellers/leaderboard`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },

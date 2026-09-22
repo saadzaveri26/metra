@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
+import { API_BASE } from "@/lib/api";
 import HQHeader from "@/components/headquarters/HQHeader";
+
 import {
   BarChart3,
   ShieldCheck,
@@ -41,7 +43,7 @@ export default function HeadquartersDashboardPage() {
     setError(null);
     try {
       const token = await getToken();
-      const res = await fetch("http://127.0.0.1:8000/api/v1/hq/analytics/overview", {
+      const res = await fetch(`${API_BASE}/hq/analytics/overview`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },

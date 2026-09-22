@@ -64,7 +64,13 @@ function SSOCallbackContent() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#f7faff] text-[#10243e]">
-      <AuthenticateWithRedirectCallback />
+      <AuthenticateWithRedirectCallback
+        signInUrl="/sign-in"
+        signUpUrl="/sign-up"
+        continueSignUpUrl="/sso-callback"
+        signInFallbackRedirectUrl="/sso-callback"
+        signUpFallbackRedirectUrl="/sso-callback"
+      />
       <div className="mt-4 flex flex-col items-center">
         <div className="w-8 h-8 border-4 border-[#0867c9] border-t-transparent rounded-full animate-spin"></div>
         <p className="mt-4 text-[14px] text-[#62738a] font-medium">Completing authentication...</p>

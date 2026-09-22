@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { API_BASE } from "@/lib/api";
 import HQHeader from "@/components/headquarters/HQHeader";
+
 import {
   Inbox,
   AlertCircle,
@@ -47,7 +49,7 @@ export default function HQLeadsPage() {
     setLoading(true);
     try {
       const token = await getToken();
-      const res = await fetch("http://127.0.0.1:8000/api/v1/hq/leads", {
+      const res = await fetch(`${API_BASE}/hq/leads`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
@@ -102,7 +104,7 @@ export default function HQLeadsPage() {
 
     try {
       const token = await getToken();
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/hq/leads/${selectedLead.id}/assign`, {
+      const res = await fetch(`${API_BASE}/hq/leads/${selectedLead.id}/assign`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

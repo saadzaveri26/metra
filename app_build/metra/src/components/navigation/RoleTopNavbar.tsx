@@ -332,7 +332,7 @@ export default function RoleTopNavbar({ role }: RoleTopNavbarProps) {
 
               {isSignedIn ? (
                 <UserButton
-                  afterSignOutUrl="/"
+                  userProfileMode="modal"
                   appearance={{
                     elements: {
                       avatarBox: `w-8 h-8 rounded-full ring-2 ${
@@ -424,7 +424,7 @@ export default function RoleTopNavbar({ role }: RoleTopNavbarProps) {
           >
             <span>{displayName}</span>
             <button
-              onClick={() => signOut({ redirectUrl: "/" })}
+              onClick={() => signOut({ redirectUrl: "/sign-in" })}
               className="flex items-center gap-1 font-bold text-[#c84c54] hover:underline"
             >
               <LogOut className="w-3.5 h-3.5" />

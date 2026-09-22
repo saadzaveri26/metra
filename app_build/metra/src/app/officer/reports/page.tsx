@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@clerk/nextjs";
+import Link from "next/link";
 import {
   FileText,
   Download,
@@ -12,7 +14,10 @@ import {
   AlertTriangle,
   ChevronRight,
   Printer,
+  RefreshCw,
+  ScanLine,
 } from "lucide-react";
+import { API_BASE } from "@/lib/api";
 
 interface ReportItem {
   id: string;
@@ -24,68 +29,61 @@ interface ReportItem {
   jurisdiction: string;
 }
 
-const mockReports: ReportItem[] = [
-  {
-    id: "REP-2026-0891",
-    productName: "Fortune Sunlite Refined Sunflower Oil 1L",
-    manufacturer: "Adani Wilmar Ltd.",
-    reportType: "Statutory Packaging Audit",
-    status: "Pass",
-    date: "14 Sep 2026",
-    jurisdiction: "Maharashtra West",
-  },
-  {
-    id: "REP-2026-0892",
-    productName: "Imported Belgian Dark Cocoa Powder 200g",
-    manufacturer: "EuroConfect NV / Global Foods",
-    reportType: "Section 36(1) Violation Dossier",
-    status: "Fail",
-    date: "14 Sep 2026",
-    jurisdiction: "Delhi Central",
-  },
-  {
-    id: "REP-2026-0893",
-    productName: "FarmFresh Organic Raw Almonds Jar 500g",
-    manufacturer: "NutriNaturals Organics",
-    reportType: "Rule 7 Font Verification",
-    status: "Review",
-    date: "13 Sep 2026",
-    jurisdiction: "Maharashtra West",
-  },
-  {
-    id: "REP-2026-0894",
-    productName: "Parle-G Gold Glucose Biscuits 250g",
-    manufacturer: "Parle Products Pvt. Ltd.",
-    reportType: "Routine Market Survey",
-    status: "Pass",
-    date: "13 Sep 2026",
-    jurisdiction: "Maharashtra West",
-  },
-  {
-    id: "REP-2026-0895",
-    productName: "Apex Herbal Antiseptic Liquid 100ml",
-    manufacturer: "Apex Formulations",
-    reportType: "Non-Standard Declaration Citation",
-    status: "Fail",
-    date: "12 Sep 2026",
-    jurisdiction: "Himachal Pradesh",
-  },
-  {
-    id: "REP-2026-0896",
-    productName: "Tata Salt Vacuum Evaporated Iodised 1kg",
-    manufacturer: "Tata Consumer Products Ltd.",
-    reportType: "Standard Packaging Audit",
-    status: "Pass",
-    date: "11 Sep 2026",
-    jurisdiction: "Maharashtra West",
-  },
-];
-
 export default function OfficerReportsPage() {
+  const { getToken } = useAuth();
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filtered = mockReports.filter((r) => {
+  const fetchReports = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/scans`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const scans = await res.json();
+        const mapped: ReportItem[] = (scans || []).map((s: any) => {
+          const overall = s.compliance_summary?.overall_status;
+          const statusText: "Pass" | "Fail" | "Review" =
+            overall === "COMPLIANT" ? "Pass" : overall === "NON_COMPLIANT" ? "Fail" : "Review";
+          const reportType =
+            overall === "NON_COMPLIANT"
+              ? "Section 36(1) Violation Dossier"
+              : overall === "NEEDS_REVIEW"
+              ? "Rule 7 Field Review Audit"
+              : "Statutory Packaging Audit";
+
+          const d = s.created_at ? new Date(s.created_at) : new Date();
+          return {
+            id: `REP-${(s.id || "").slice(-8).toUpperCase()}`,
+            productName: s.structured_fields?.product_name?.value || "Unlabeled Package Commodity",
+            manufacturer: s.structured_fields?.manufacturer?.value || "Declared Manufacturer Pending",
+            reportType,
+            status: statusText,
+            date: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+            jurisdiction: s.jurisdiction || "Assigned Division",
+          };
+        });
+        setReports(mapped);
+      } else {
+        setReports([]);
+      }
+    } catch (err) {
+      console.error("Failed to load officer reports:", err);
+      setReports([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getToken]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+  const filtered = reports.filter((r) => {
     const matchesStatus = statusFilter === "ALL" || r.status.toUpperCase() === statusFilter;
     const matchesSearch =
       r.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -111,13 +109,15 @@ export default function OfficerReportsPage() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs"
+            disabled={reports.length === 0}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Printer className="w-4 h-4 text-slate-500" />
             <span>Print Dossier</span>
           </button>
           <button
             type="button"
+            disabled={filtered.length === 0}
             onClick={() => {
               const csvContent =
                 "data:text/csv;charset=utf-8," +
@@ -131,12 +131,15 @@ export default function OfficerReportsPage() {
               const encodedUri = encodeURI(csvContent);
               const link = document.createElement("a");
               link.setAttribute("href", encodedUri);
-              link.setAttribute("download", `metra_enforcement_reports_${new Date().toISOString().slice(0, 10)}.csv`);
+              link.setAttribute(
+                "download",
+                `metra_enforcement_reports_${new Date().toISOString().slice(0, 10)}.csv`
+              );
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
             }}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-[#0867c9] hover:bg-[#063d78] rounded-lg transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-[#0867c9] hover:bg-[#063d78] rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
             <span>Export CSV</span>
@@ -157,7 +160,7 @@ export default function OfficerReportsPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Filter className="w-3.5 h-3.5 text-slate-400" />
           <span className="text-xs font-semibold text-slate-600">Status:</span>
           {["ALL", "PASS", "FAIL", "REVIEW"].map((tab) => (
@@ -173,6 +176,14 @@ export default function OfficerReportsPage() {
               {tab}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={fetchReports}
+            title="Refresh reports"
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#0867c9] hover:bg-slate-50 transition-colors ml-1"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+          </button>
         </div>
       </div>
 
@@ -192,10 +203,42 @@ export default function OfficerReportsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#dce7f2]">
-              {filtered.length === 0 ? (
+              {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-10 text-slate-400">
-                    No enforcement reports match your criteria.
+                  <td colSpan={7} className="text-center py-12 text-slate-400">
+                    <div className="flex items-center justify-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-[#0867c9]" />
+                      <span>Loading statutory reports...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 px-4 text-center">
+                    <div className="max-w-sm mx-auto flex flex-col items-center">
+                      <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-[#0867c9] mb-3">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <h4 className="font-bold text-sm text-[#10243e]">
+                        {searchQuery || statusFilter !== "ALL"
+                          ? "No matching reports"
+                          : "No statutory enforcement reports yet"}
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                        {searchQuery || statusFilter !== "ALL"
+                          ? "Try modifying your search or clearing the status filter."
+                          : "Inspection dossiers and violation citations will be automatically generated whenever package labels are scanned."}
+                      </p>
+                      {!searchQuery && statusFilter === "ALL" && (
+                        <Link
+                          href="/officer/scan"
+                          className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0867c9] hover:bg-[#0753a0] text-white text-xs font-semibold shadow transition-colors"
+                        >
+                          <ScanLine className="w-3.5 h-3.5" />
+                          <span>Scan Package Now</span>
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -227,14 +270,13 @@ export default function OfficerReportsPage() {
                     </td>
                     <td className="px-4 py-3.5 text-slate-500">{r.date}</td>
                     <td className="px-4 py-3.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => alert(`Report ${r.id} downloaded for ${r.productName}`)}
+                      <Link
+                        href="/officer"
                         className="inline-flex items-center gap-1 text-xs font-semibold text-[#0867c9] hover:underline"
                       >
-                        <span>Download</span>
+                        <span>View Details</span>
                         <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
+                      </Link>
                     </td>
                   </tr>
                 ))
@@ -244,7 +286,9 @@ export default function OfficerReportsPage() {
         </div>
 
         <div className="p-4 bg-[#f7faff] border-t border-[#dce7f2] flex items-center justify-between text-xs text-slate-500">
-          <span>Showing {filtered.length} of {mockReports.length} records</span>
+          <span>
+            Showing {filtered.length} of {reports.length} records
+          </span>
           <span className="text-[11px] text-slate-400">Statutory records retained under Rule 34</span>
         </div>
       </div>

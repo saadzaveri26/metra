@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
+import { API_BASE } from "@/lib/api";
 import HQHeader from "@/components/headquarters/HQHeader";
+
 import {
   Scale,
   Plus,
@@ -57,7 +59,7 @@ export default function HQRulesPage() {
     setLoading(true);
     try {
       const token = await getToken();
-      const res = await fetch("http://127.0.0.1:8000/api/v1/hq/rules", {
+      const res = await fetch(`${API_BASE}/hq/rules`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
@@ -117,7 +119,7 @@ export default function HQRulesPage() {
 
     try {
       const token = await getToken();
-      const res = await fetch("http://127.0.0.1:8000/api/v1/hq/rules", {
+      const res = await fetch(`${API_BASE}/hq/rules`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -165,7 +167,7 @@ export default function HQRulesPage() {
     try {
       const token = await getToken();
       const nextActiveState = !rule.is_active;
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/hq/rules/${rule.id}`, {
+      const res = await fetch(`${API_BASE}/hq/rules/${rule.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

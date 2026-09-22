@@ -14,8 +14,9 @@ from typing import Any, Dict, List, Optional
 from ocr_engine import OCRBlock
 
 _MRP_PATTERN = re.compile(
-    r"(?:mrp|m\.?r\.?p\.?|max(?:imum)?\.?\s*retail\s*price)\s*[:\-]?\s*"
-    r"(?:rs\.?|inr|₹)?\s*([0-9]+(?:[.,][0-9]+)?)",
+    r"(?:mrp|m\.?r\.?p\.?|max(?:imum)?\.?\s*retail\s*price)"
+    r"(?:[^\d\n]{0,40}?)"
+    r"(?:rs\.?|inr|₹)?\s*([0-9]+(?:[.,][0-9]{1,2})?)",
     re.IGNORECASE,
 )
 _NET_QTY_PATTERN = re.compile(

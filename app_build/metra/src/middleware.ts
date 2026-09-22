@@ -101,6 +101,9 @@ const middleware = clerkMiddleware(async (auth, req) => {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
   }
+}, {
+  signInUrl: "/sign-in",
+  signUpUrl: "/sign-up",
 });
 
 export default middleware;

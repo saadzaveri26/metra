@@ -9,12 +9,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const callerRole = (
+    let callerRole = (
       (sessionClaims as any)?.role ||
       (sessionClaims?.metadata as any)?.role ||
       (sessionClaims?.publicMetadata as any)?.role ||
       ""
     ).toLowerCase();
+
+    const client = await clerkClient();
+
+    if (!callerRole && userId) {
+      try {
+        const u = await client.users.getUser(userId);
+        callerRole = String((u.publicMetadata as any)?.role || "").toLowerCase();
+      } catch (err) {
+        console.warn("Could not fetch Clerk user metadata in verify route:", err);
+      }
+    }
 
     if (callerRole !== "headquarters" && callerRole !== "hq") {
       return NextResponse.json(
@@ -30,7 +41,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "officerId is required" }, { status: 400 });
     }
 
-    const client = await clerkClient();
 
     if (action === "reject") {
       try {

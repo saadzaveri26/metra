@@ -6,5 +6,7 @@
  * hardcoded localhost:8000 references that break on deployment.
  */
 
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+export const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1"
+).replace(/\/api\/v1\/?$/, "").replace(/\/+$/, "") + "/api/v1";
+
