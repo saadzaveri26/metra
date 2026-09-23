@@ -19,6 +19,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import { API_BASE } from "@/lib/api";
 
 interface NotificationItem {
@@ -41,6 +42,22 @@ interface NotificationItem {
 }
 
 export default function NotificationsPage() {
+  const { user } = useUser();
+  const role = (
+    (user?.publicMetadata as any)?.role ||
+    (user?.unsafeMetadata as any)?.role ||
+    "consumer"
+  ).toLowerCase();
+
+  const dashboardHref =
+    role === "officer" || role === "inspector"
+      ? "/officer"
+      : role === "vendor"
+      ? "/vendor"
+      : role === "headquarters" || role === "hq"
+      ? "/headquarters"
+      : "/consumer";
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -181,9 +198,9 @@ export default function NotificationsPage() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link
-              href="/"
+              href={dashboardHref}
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-              title="Return to Home"
+              title="Return to Dashboard"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>

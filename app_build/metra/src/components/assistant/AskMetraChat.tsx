@@ -120,12 +120,32 @@ export default function AskMetraChat({
       ? "headquarters"
       : initialPersona;
 
+  const renderCleanText = (text: string) => {
+    if (!text) return null;
+    const normalized = text.replace(/^(\s*)\*\s+/gm, "$1• ");
+    const parts = normalized.split(/\*\*/g);
+    if (parts.length === 1) {
+      return parts[0].replace(/\*/g, "");
+    }
+    return parts.map((part, index) => {
+      const cleanPart = part.replace(/\*/g, "");
+      if (index % 2 === 1) {
+        return (
+          <strong key={index} className="font-bold text-white">
+            {cleanPart}
+          </strong>
+        );
+      }
+      return cleanPart;
+    });
+  };
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "m-welcome",
       sender: "assistant",
       persona: activePersona,
-      text: `Welcome to **ASK METRA**. I am your conversational statutory assistant grounded in the **Legal Metrology Act, 2009** and the **Packaged Commodities Rules, 2011**.\n\nYour session is locked to your verified role credentials. Ask any compliance or statutory question below.`,
+      text: `Welcome to ASK METRA. I am your conversational statutory assistant grounded in the Legal Metrology Act, 2009 and the Packaged Commodities Rules, 2011.\n\nYour session is locked to your verified role credentials. Ask any compliance or statutory question below.`,
       followups: [
         "Can a retailer charge above printed MRP for chilled goods?",
         "What is the minimum font height requirement for a 500g package?",
@@ -146,7 +166,7 @@ export default function AskMetraChat({
               id: "m-welcome",
               sender: "assistant",
               persona: activePersona,
-              text: `Welcome to **ASK METRA**. I am your conversational statutory assistant grounded in the **Legal Metrology Act, 2009** and the **Packaged Commodities Rules, 2011**.\n\nYour session is operating in **${personaObj.name}** mode (strictly locked to your authenticated role). Ask any compliance or statutory question below.`,
+              text: `Welcome to ASK METRA. I am your conversational statutory assistant grounded in the Legal Metrology Act, 2009 and the Packaged Commodities Rules, 2011.\n\nYour session is operating in ${personaObj.name} mode (strictly locked to your authenticated role). Ask any compliance or statutory question below.`,
               followups:
                 activePersona === "officer"
                   ? [
@@ -300,7 +320,7 @@ export default function AskMetraChat({
         id: `a-${Date.now()}`,
         sender: "assistant",
         persona: activePersona,
-        text: `Under **Rule 6 of the Legal Metrology (Packaged Commodities) Rules, 2011**, all mandatory declarations—including the Maximum Retail Price (MRP), Net Quantity, Manufacturer Identity, and Month/Year of packing—must be prominently displayed without alteration.\n\n*(Telemetry offline: response synthesized from local statutory corpus)*`,
+        text: `Under Rule 6 of the Legal Metrology (Packaged Commodities) Rules, 2011, all mandatory declarations—including the Maximum Retail Price (MRP), Net Quantity, Manufacturer Identity, and Month/Year of packing—must be prominently displayed without alteration.\n\n(Response synthesized from local statutory provisions)`,
         citations: [
           {
             rule_code: "PCR-R06",
@@ -329,7 +349,7 @@ export default function AskMetraChat({
         id: `m-reset-${Date.now()}`,
         sender: "assistant",
         persona: activePersona,
-        text: `Conversation refreshed in **${personaObj.name}** mode (role-locked). What statutory question can I answer for you?`,
+        text: `Conversation refreshed in ${personaObj.name} mode (role-locked). What statutory question can I answer for you?`,
         followups:
           activePersona === "officer"
             ? [
@@ -378,7 +398,7 @@ export default function AskMetraChat({
               <div className="flex items-center gap-2">
                 <span className="font-bold text-white text-sm tracking-wide">ASK METRA</span>
                 <span className="text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 px-1.5 py-0.5 rounded">
-                  v2.0 VECTOR RAG
+                  STATUTORY ASSISTANT
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
@@ -436,10 +456,9 @@ export default function AskMetraChat({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400 shrink-0 self-end sm:self-center">
-            <span className="text-amber-400/80">RAG: ChromaDB</span>
-            <span className="text-slate-600">•</span>
-            <span className="text-slate-500">sentence-transformers</span>
+          <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 shrink-0 self-end sm:self-center">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span className="text-emerald-400/90 font-medium">Verified Legal Corpus</span>
           </div>
         </div>
       </div>
@@ -501,9 +520,9 @@ export default function AskMetraChat({
                   </div>
                 )}
 
-                {/* Message Body (Markdown formatted) */}
-                <div className="whitespace-pre-line prose prose-invert prose-xs text-xs">
-                  {msg.text}
+                {/* Message Body */}
+                <div className="whitespace-pre-line text-xs leading-relaxed text-slate-200">
+                  {renderCleanText(msg.text)}
                 </div>
 
                 {/* Statutory Citations Cards */}
@@ -585,7 +604,7 @@ export default function AskMetraChat({
               <div className="w-2 h-2 rounded-full bg-amber-400 animate-bounce [animation-delay:0.2s]" />
               <div className="w-2 h-2 rounded-full bg-amber-400 animate-bounce [animation-delay:0.4s]" />
               <span className="text-[11px] text-slate-400 ml-1">
-                Searching rules_corpus and synthesizing {currentPersonaObj.roleTag} guidance...
+                Searching statutory rules and synthesizing {currentPersonaObj.roleTag} guidance...
               </span>
             </div>
           </div>

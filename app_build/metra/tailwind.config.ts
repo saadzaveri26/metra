@@ -58,8 +58,8 @@ const config: Config = {
       // Source: https://ux4g.gov.in/foundations/typography
       // ═══════════════════════════════════════════════
       fontFamily: {
-        sans: ['"Noto Sans"', "system-ui", "sans-serif"],
-        display: ['"Noto Sans Display"', '"Noto Sans"', "sans-serif"],
+        sans: ['"Outfit"', '"Noto Sans"', "system-ui", "sans-serif"],
+        display: ['"Outfit"', '"Noto Sans Display"', '"Noto Sans"', "sans-serif"],
       },
       fontWeight: {
         regular: "400",
@@ -96,15 +96,15 @@ const config: Config = {
       // ═══════════════════════════════════════════════
       boxShadow: {
         // METRA originals (kept for backward compat)
-        metra: "0 18px 50px rgba(21, 62, 105, 0.10)",
-        "metra-hover": "0 22px 60px rgba(21, 62, 105, 0.15)",
+        metra: "0 18px 50px rgba(6, 44, 77, 0.10)",
+        "metra-hover": "0 22px 60px rgba(6, 44, 77, 0.15)",
 
-        // UX4G elevation levels
+        // UX4G elevation levels — navy-tinted
         "ux4g-0": "none",
-        "ux4g-1": "0px 1px 2px 0px rgba(0,0,0,0.06), 0px 1px 2px 0px rgba(0,0,0,0.06)",
-        "ux4g-2": "0px 4px 8px 0px rgba(0,0,0,0.08), 0px 1px 2px 0px rgba(0,0,0,0.06)",
-        "ux4g-3": "0px 8px 16px 0px rgba(0,0,0,0.12), 0px 4px 8px 0px rgba(0,0,0,0.08)",
-        "ux4g-4": "0px 16px 32px 0px rgba(0,0,0,0.16), 0px 8px 16px 0px rgba(0,0,0,0.12)",
+        "ux4g-1": "0px 1px 3px 0px rgba(6, 30, 55, 0.06), 0px 1px 2px 0px rgba(6, 30, 55, 0.04)",
+        "ux4g-2": "0px 4px 12px 0px rgba(6, 30, 55, 0.08), 0px 1px 3px 0px rgba(6, 30, 55, 0.05)",
+        "ux4g-3": "0px 10px 28px 0px rgba(6, 30, 55, 0.10), 0px 4px 10px 0px rgba(6, 30, 55, 0.06)",
+        "ux4g-4": "0px 16px 32px 0px rgba(6, 30, 55, 0.14), 0px 8px 16px 0px rgba(6, 30, 55, 0.08)",
       },
 
       // ═══════════════════════════════════════════════

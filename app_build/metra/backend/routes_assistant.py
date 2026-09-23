@@ -241,18 +241,21 @@ def ask_metra_chat(
     # If escalation was blocked, prepend a clear notice
     if persona_escalation_blocked:
         answer = (
-            "**⚠ Access Restricted:** Officer and Headquarters modes contain enforcement-sensitive "
+            "⚠ Access Restricted: Officer and Headquarters modes contain enforcement-sensitive "
             "content (seizure protocols, prosecution guidance, compounding analysis) and are only "
             "available to authenticated Legal Metrology officers and HQ personnel. "
             "Your query has been answered using your current role.\n\n---\n\n"
         ) + answer
+
+    # Ensure answer does not contain markdown asterisks
+    clean_answer = answer.replace("**", "").replace("*", "")
 
     # 3. Dynamic follow-ups
     meta_info = PERSONA_METADATA[requested_persona]
     followups = _get_contextual_followups(query, requested_persona, citations)
 
     return AskMetraResponse(
-        answer=answer,
+        answer=clean_answer,
         active_persona=requested_persona,
         persona_display_name=meta_info["display_name"],
         citations=citations,
@@ -270,7 +273,7 @@ def _synthesize_persona_response(
     """
     Builds structured, authoritative response text tailored specifically to each role persona.
     """
-    citation_summary = ", ".join([f"**{c.statutory_reference}** ({c.rule_code})" for c in citations[:2]])
+    citation_summary = ", ".join([f"{c.statutory_reference} ({c.rule_code})" for c in citations[:2]])
 
     q_lower = query.lower()
 
@@ -283,40 +286,40 @@ def _synthesize_persona_response(
 
     if persona == "officer":
         # Officer Persona: Statutory authority, evidentiary requirements, panchnama & seizure protocol
-        intro = f"**Inspection Directive & Statutory Citation ({citation_summary})**\n\n"
+        intro = f"Inspection Directive & Statutory Citation ({citation_summary})\n\n"
         if is_mrp:
             body = (
-                "Under **Rule 6(1)(e)** of the Legal Metrology (Packaged Commodities) Rules, 2011, the Maximum Retail Price (MRP) "
+                "Under Rule 6(1)(e) of the Legal Metrology (Packaged Commodities) Rules, 2011, the Maximum Retail Price (MRP) "
                 "must be declared inclusive of all taxes. Charging any amount exceeding the printed MRP constitutes an infraction under "
-                "**Section 36(1)** of the Legal Metrology Act, 2009.\n\n"
-                "**Evidentiary Protocol for Officers:**\n"
-                "1. **Sample Purchase Receipt**: Obtain cash memo/tax invoice evidencing payment over the stated MRP.\n"
-                "2. **Physical Seizure / Panchnama**: If dual pricing or tamper stickers are observed, seize specimen units under **Section 15** "
+                "Section 36(1) of the Legal Metrology Act, 2009.\n\n"
+                "Evidentiary Protocol for Officers:\n"
+                "1. Sample Purchase Receipt: Obtain cash memo/tax invoice evidencing payment over the stated MRP.\n"
+                "2. Physical Seizure / Panchnama: If dual pricing or tamper stickers are observed, seize specimen units under Section 15 "
                 "with two independent witnesses.\n"
-                "3. **Notice under Rule 32**: Issue formal statutory notice requiring manufacturer/retailer response within 15 working days."
+                "3. Notice under Rule 32: Issue formal statutory notice requiring manufacturer/retailer response within 15 working days."
             )
         elif is_font:
             body = (
-                "Under **Rule 9** and the **First Schedule** of the PCR 2011, minimum numeral font heights are strictly keyed to the "
+                "Under Rule 9 and the First Schedule of the PCR 2011, minimum numeral font heights are strictly keyed to the "
                 "area of the Principal Display Panel (PDP):\n"
                 "- Area ≤ 50 cm²: Minimum numeral height 1.0 mm (1.5 mm for blow-moulded)\n"
                 "- 50 cm² < Area ≤ 100 cm²: Minimum height 1.5 mm\n"
                 "- 100 cm² < Area ≤ 500 cm²: Minimum height 2.5 mm\n"
                 "- 500 cm² < Area ≤ 2500 cm²: Minimum height 4.0 mm\n\n"
-                "**Officer Verification**: Measure capital letter / numeral height using a calibrated digital graticule or vernier gauge. "
-                "Lack of prominent contrast against package background violates **Rule 9(1)**."
+                "Officer Verification: Measure capital letter / numeral height using a calibrated digital graticule or vernier gauge. "
+                "Lack of prominent contrast against package background violates Rule 9(1)."
             )
         elif is_compound:
             body = (
-                "Under **Section 48** of the Legal Metrology Act, 2009, compounding of offences is permissible for first-time contraventions "
+                "Under Section 48 of the Legal Metrology Act, 2009, compounding of offences is permissible for first-time contraventions "
                 "by compounding authorities (Controller or designated Legal Metrology Officer).\n\n"
-                "**Critical Statutory Constraint**: No offence can be compounded if the entity has previously compounded the same offence "
-                "within a preceding period of three years. In repeated infractions under **Section 36(1)**, mandatory prosecution before "
+                "Critical Statutory Constraint: No offence can be compounded if the entity has previously compounded the same offence "
+                "within a preceding period of three years. In repeated infractions under Section 36(1), mandatory prosecution before "
                 "the competent Judicial Magistrate is required, carrying imprisonment up to one year and non-compoundable penalties."
             )
         else:
             body = (
-                f"Based on **{citations[0].statutory_reference}**, all pre-packaged commodities distributed in commerce must strictly "
+                f"Based on {citations[0].statutory_reference}, all pre-packaged commodities distributed in commerce must strictly "
                 f"comply with mandatory declarations. Inspecting officers must record package dimensions, batch numbers, and manufacturer "
                 f"credentials in the inspection seizure register. Where defects are non-critical, issue an advisory rectification directive; "
                 f"where deceptive packaging or net weight shortages exist, initiate formal adjudication under Section 36."
@@ -325,34 +328,34 @@ def _synthesize_persona_response(
 
     elif persona == "vendor":
         # Vendor Persona: Pre-market correction, PDP guidelines, compliance remedies
-        intro = f"**Pre-Market Packaging Compliance Advisory ({citation_summary})**\n\n"
+        intro = f"Pre-Market Packaging Compliance Advisory ({citation_summary})\n\n"
         if is_mrp:
             body = (
                 "To ensure your packaging is 100% compliant before market distribution:\n\n"
-                "1. **Declaration Format**: Print `MRP ₹ xx.xx (incl. of all taxes)` in clear, contrasting typography.\n"
-                "2. **Unit Sale Price (USP)**: Under the amended Rule 6(11), if the package contains more than 1 kg / 1 L, "
+                "1. Declaration Format: Print `MRP ₹ xx.xx (incl. of all taxes)` in clear, contrasting typography.\n"
+                "2. Unit Sale Price (USP): Under the amended Rule 6(11), if the package contains more than 1 kg / 1 L, "
                 "you must also declare the Unit Sale Price per gram, kg, ml, or piece (e.g. `₹ 0.50 per g`).\n"
-                "3. **Dual Stickers Prohibited**: Never affix adhesive price alteration stickers over pre-printed MRPs. "
+                "3. Dual Stickers Prohibited: Never affix adhesive price alteration stickers over pre-printed MRPs. "
                 "Inspectors treat altered labels as prima facie violations under Section 36."
             )
         elif is_font:
             body = (
                 "To calculate and verify your typography before final label printing:\n\n"
-                "1. **Calculate PDP Area**: Measure the height × width of the principal face of the carton or pouch.\n"
-                "2. **Apply Rule 9 Table**: For standard consumer packs between 100 cm² and 500 cm², all numerical values "
-                "(net quantity, MRP, unit price) must be at least **2.5 mm** in height.\n"
-                "3. **Contrast Requirement**: Ensure sufficient visual contrast against the background so text is easily legible to consumers."
+                "1. Calculate PDP Area: Measure the height × width of the principal face of the carton or pouch.\n"
+                "2. Apply Rule 9 Table: For standard consumer packs between 100 cm² and 500 cm², all numerical values "
+                "(net quantity, MRP, unit price) must be at least 2.5 mm in height.\n"
+                "3. Contrast Requirement: Ensure sufficient visual contrast against the background so text is easily legible to consumers."
             )
         elif is_mfg:
             body = (
-                "Under **Rule 6(1)(a) & 6(1)(b)**, every consumer pack must clearly state:\n"
+                "Under Rule 6(1)(a) & 6(1)(b), every consumer pack must clearly state:\n"
                 "- Complete physical address of the manufacturer, packer, or importer.\n"
                 "- Name and official consumer care contact number, email, and postal address.\n"
                 "- Country of origin (especially mandatory for imported or blended goods)."
             )
         else:
             body = (
-                f"Under **{citations[0].statutory_reference}**, your artwork and packaging must declare all mandatory provisions "
+                f"Under {citations[0].statutory_reference}, your artwork and packaging must declare all mandatory provisions "
                 f"prior to dispatch. Running a digital pre-market scan through METRA allows your QA/Regulatory team to identify "
                 f"layout or typography mismatches and correct them at the prepress stage without statutory liability."
             )
@@ -360,27 +363,27 @@ def _synthesize_persona_response(
 
     elif persona == "consumer":
         # Consumer Persona: Plain language, rights, how to report, no risk scores
-        intro = f"**Citizen Packaging & Consumer Rights Guide**\n\n"
+        intro = f"Citizen Packaging & Consumer Rights Guide\n\n"
         if is_mrp:
             body = (
                 "Here is what you need to know about Maximum Retail Price (MRP) as a consumer:\n\n"
-                "• **No Extra Charges**: A retailer or restaurant cannot charge you more than the printed MRP under any circumstances — "
+                "• No Extra Charges: A retailer or restaurant cannot charge you more than the printed MRP under any circumstances — "
                 "even for chilled beverages or packaging fees. The MRP already includes all applicable GST and taxes.\n"
-                "• **Dual Pricing is Illegal**: Selling the same identical commodity at higher prices in different retail spots "
+                "• Dual Pricing is Illegal: Selling the same identical commodity at higher prices in different retail spots "
                 "(like airports or multiplexes) without unique packaging or statutory clearance is prohibited.\n"
-                "• **What you can do**: If you are overcharged, ask for a printed bill showing the amount charged, take a photo "
-                "of the product's MRP label, and submit a report here on **METRA** or call the **National Consumer Helpline at 1915**."
+                "• What you can do: If you are overcharged, ask for a printed bill showing the amount charged, take a photo "
+                "of the product's MRP label, and submit a report here on METRA or call the National Consumer Helpline at 1915."
             )
         elif is_qty:
             body = (
-                "Every packaged commodity in India must clearly show its exact **Net Quantity** (weight, volume, or piece count) "
+                "Every packaged commodity in India must clearly show its exact Net Quantity (weight, volume, or piece count) "
                 "in metric units (grams, kilograms, milliliters, liters).\n\n"
                 "If a package feels unusually empty, look at the net weight declaration on the front or back. If you suspect short-weight, "
                 "you have the right to have it weighed on an approved electronic balance at the store."
             )
         else:
             body = (
-                f"Under the **Legal Metrology (Packaged Commodities) Rules, 2011**, all consumer packages must clearly display:\n"
+                f"Under the Legal Metrology (Packaged Commodities) Rules, 2011, all consumer packages must clearly display:\n"
                 f"1. Maximum Retail Price (inclusive of all taxes)\n"
                 f"2. Net Quantity in standard units\n"
                 f"3. Date of Manufacture / Expiry\n"
@@ -392,19 +395,19 @@ def _synthesize_persona_response(
 
     else:
         # Headquarters Persona: Macro policy, compounding, Section 48, gazette amendments
-        intro = f"**Headquarters Regulatory Policy & Oversight Briefing ({citation_summary})**\n\n"
+        intro = f"Headquarters Regulatory Policy & Oversight Briefing ({citation_summary})\n\n"
         if is_compound:
             body = (
-                "**Directorate Compounding Policy (Section 48 Harmonization):**\n"
-                "- **First Offence Ceiling**: Section 48 empowers the Controller / designated Legal Metrology officer to compound "
+                "Directorate Compounding Policy (Section 48 Harmonization):\n"
+                "- First Offence Ceiling: Section 48 empowers the Controller / designated Legal Metrology officer to compound "
                 "offences punishable under Section 36(1) upon payment of compounding sum (capped at statutory limits).\n"
-                "- **Three-Year Recidivism Bar**: Compounding is statutorily impermissible if the violator has committed the same offence "
+                "- Three-Year Recidivism Bar: Compounding is statutorily impermissible if the violator has committed the same offence "
                 "within the prior 36 months.\n"
-                "- **Corporate Responsibility**: Directors and persons in charge are vicariously liable under **Section 49** unless due diligence is proven."
+                "- Corporate Responsibility: Directors and persons in charge are vicariously liable under Section 49 unless due diligence is proven."
             )
         else:
             body = (
-                f"**National Regulatory Standard ({citations[0].rule_code}):**\n"
+                f"National Regulatory Standard ({citations[0].rule_code}):\n"
                 f"The Directorate maintains uniform enforcement standards across State Legal Metrology departments. "
                 f"Amendments under Gazette notifications mandate strict compliance with digital disclosures and unit sale prices. "
                 f"Where systemic non-compliance is identified across multiple jurisdictions, HQ may issue advisory directives "

@@ -1,6 +1,24 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 
-export default function UnauthorizedPage() {
+export default async function UnauthorizedPage() {
+  const { sessionClaims, userId } = await auth();
+  const role = (
+    (sessionClaims as any)?.role ||
+    (sessionClaims?.metadata as any)?.role ||
+    (sessionClaims?.publicMetadata as any)?.role ||
+    "consumer"
+  ).toLowerCase();
+
+  const dashboardHref =
+    role === "officer" || role === "inspector"
+      ? "/officer"
+      : role === "vendor"
+      ? "/vendor"
+      : role === "headquarters" || role === "hq"
+      ? "/headquarters"
+      : "/consumer";
+
   return (
     <div className="min-h-screen bg-[#f7faff] text-[#10243e] flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-[500px] bg-white border border-[#dce7f2] rounded-[18px] p-8 sm:p-10 shadow-[0_18px_50px_rgba(21,62,105,0.10)] text-center">
@@ -14,10 +32,10 @@ export default function UnauthorizedPage() {
         </p>
         <div className="space-y-3">
           <Link
-            href="/"
+            href={userId ? dashboardHref : "/"}
             className="w-full py-3 px-4 bg-[#0867c9] text-white font-bold text-[14px] rounded-[10px] block hover:bg-[#063d78] transition-colors"
           >
-            Return to Home Page
+            {userId ? "Return to Your Dashboard" : "Return to Home Page"}
           </Link>
           <Link
             href="/sign-in"

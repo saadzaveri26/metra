@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 try:
     import email_validator
     from pydantic import EmailStr
@@ -95,6 +95,7 @@ class ComplianceFieldResult(BaseModel):
     penalty_clause: str
     source_block_index: Optional[int] = None
     bounding_box: Optional[List[float]] = None
+    normalized_box: Optional[Dict[str, float]] = None
     ai_value: Optional[str] = None
     effective_value: Optional[str] = None
     is_overridden: bool = False
@@ -115,6 +116,8 @@ class ScanOut(BaseModel):
     is_imported: bool
     status: str
     ocr_raw_text: Optional[str] = None
+    ocr_blocks: Optional[List[Dict[str, Any]]] = None
+    image_dimensions: Optional[Dict[str, Any]] = None
     structured_fields: Optional[Dict[str, Any]] = None
     compliance_summary: Optional[ComplianceSummary] = None
     compliance_results: Optional[Dict[str, ComplianceFieldResult]] = None
@@ -124,6 +127,12 @@ class ScanOut(BaseModel):
     officer_overrides: Optional[Dict[str, Any]] = None
     state_region: Optional[str] = None
     created_at: datetime
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, dt: datetime, _info):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat()
 
     class Config:
         from_attributes = True

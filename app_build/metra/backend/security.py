@@ -43,6 +43,11 @@ oauth2_scheme = OAuth2PasswordBearer(
     auto_error=True,
 )
 
+oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_PREFIX}/auth/login",
+    auto_error=False,
+)
+
 _ID_RE = re.compile(settings.ID_REGEX)
 
 # Cached JWKS client for Clerk
@@ -96,14 +101,17 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         # 2. Verify with Clerk JWKS endpoint
         jwks_client = get_jwks_client()
         if jwks_client:
-            signing_key = jwks_client.get_signing_key_from_jwt(token)
-            payload = jwt.decode(
-                token,
-                signing_key.key,
-                algorithms=["RS256"],
-                options={"verify_aud": False},
-            )
-            return _normalize_claims(payload)
+            try:
+                signing_key = jwks_client.get_signing_key_from_jwt(token)
+                payload = jwt.decode(
+                    token,
+                    signing_key.key,
+                    algorithms=["RS256"],
+                    options={"verify_aud": False},
+                )
+                return _normalize_claims(payload)
+            except Exception:
+                pass
 
         # 3. Development/Test fallback with SECRET_KEY
         payload = jwt.decode(
@@ -215,6 +223,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any
             headers={"WWW-Authenticate": "Bearer"},
         )
     return payload
+
+
+async def get_optional_current_user(token: Optional[str] = Depends(oauth2_scheme_optional)) -> Optional[Dict[str, Any]]:
+    """Optional auth dependency allowing public safe-harbor self-check or authenticated usage."""
+    if not token:
+        return None
+    try:
+        payload = decode_access_token(token)
+        return payload if payload.get("sub") else None
+    except Exception:
+        return None
 
 
 def require_roles(*allowed_roles: str):

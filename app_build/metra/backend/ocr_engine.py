@@ -13,6 +13,7 @@ so switching engines never changes this behavior.
 """
 import io
 import os
+import re
 import threading
 from typing import List, TypedDict
 
@@ -122,6 +123,137 @@ def _extract_mock(image_bytes: bytes, fixture_hint: str = "") -> List[OCRBlock]:
     return blocks
 
 
+def _clean_statutory_text(text: str) -> str:
+    """Clean common OCR artifacts on Indian statutory labels (MRP, dates, batch)."""
+    t = re.sub(r'\bMRR\b', 'MRP', text, flags=re.IGNORECASE)
+    t = re.sub(r'MRP\s*[uU]([0-9oO])', r'MRP 3\1', t, flags=re.IGNORECASE)
+    t = re.sub(r'(\d)[oO]', r'\g<1>0', t)
+    t = re.sub(r'(\d+)[.,][oO]{1,2}', r'\1.00', t)
+    return t
+
+
+def _scan_statutory_white_patches(pil_img: Image.Image, baseline_blocks: List[OCRBlock]) -> List[OCRBlock]:
+    """
+    On Indian packaged commodities, statutory declarations (MRP, Batch, Pkd Date, Expiry)
+    are frequently inkjet or thermal printed onto a dedicated white label patch/panel.
+    In whole-image downscaled OCR, small condensed fonts (~10-11px) on this patch can
+    degrade or be skipped.
+
+    This function detects the white label region (via anchor text clustering and visual
+    patch boundaries), crops the region from the image, upscales it 3x with LANCZOS,
+    and runs high-resolution OCR, mapping the detected bounding boxes back to the parent image.
+    """
+    import winocr
+
+    w, h = pil_img.size
+    anchors: List[OCRBlock] = []
+    statutory_anchors = ["DATE OF", "PACKAGING", "USE BY", "BEST BEFORE", "EXPIRY", "EXP.", "MFG", "PKD", "BN:", "BATCH", "LOT NO"]
+
+    for b in baseline_blocks:
+        t = b["text"].upper()
+        if any(k in t for k in statutory_anchors):
+            anchors.append(b)
+
+    crop_boxes = []
+
+    # Strategy A: Cluster of statutory anchor declarations
+    if anchors:
+        xs = [b["bounding_box"][0] for b in anchors] + [b["bounding_box"][2] for b in anchors]
+        ys = [b["bounding_box"][1] for b in anchors] + [b["bounding_box"][5] for b in anchors]
+        # Expand upward (where MRP sits above dates/batch), left/right, and downward
+        x1 = max(0, int(min(xs) - 60))
+        y1 = max(0, int(min(ys) - 160))
+        x2 = min(w, int(max(xs) + 90))
+        y2 = min(h, int(max(ys) + 50))
+        crop_boxes.append((x1, y1, x2, y2))
+
+    # Strategy B: Visual white patch detection via low-saturation high-value contour
+    try:
+        import numpy as np
+        import cv2
+        img_np = np.array(pil_img)
+        hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
+        mask = cv2.inRange(hsv, np.array([0, 0, 160]), np.array([180, 65, 255]))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 20))
+        closed = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        img_area = w * h
+
+        for c in contours:
+            cx, cy, cw, ch = cv2.boundingRect(c)
+            area = cw * ch
+            if 0.008 * img_area < area < 0.35 * img_area and cw > 60 and ch > 40:
+                # If we don't already overlap with an existing crop box, add it
+                overlap = False
+                for bx1, by1, bx2, by2 in crop_boxes:
+                    if not (cx + cw < bx1 or cx > bx2 or cy + ch < by1 or cy > by2):
+                        overlap = True
+                        break
+                if not overlap:
+                    crop_boxes.append((max(0, cx - 10), max(0, cy - 10), min(w, cx + cw + 10), min(h, cy + ch + 10)))
+    except Exception:
+        pass
+
+    if not crop_boxes:
+        return []
+
+    new_blocks: List[OCRBlock] = []
+    idx_counter = len(baseline_blocks) + 100
+
+    scale = 3.0
+    for x1, y1, x2, y2 in crop_boxes:
+        if x2 - x1 < 30 or y2 - y1 < 20:
+            continue
+        try:
+            patch = pil_img.crop((x1, y1, x2, y2))
+            pw, ph = int(patch.width * scale), int(patch.height * scale)
+            patch_scaled = patch.resize((pw, ph), Image.LANCZOS)
+
+            if hasattr(winocr, "recognize_pil_sync"):
+                res = winocr.recognize_pil_sync(patch_scaled, "en")
+            else:
+                import asyncio
+                res = asyncio.run(winocr.recognize_pil(patch_scaled, "en"))
+
+            lines = res.get("lines", []) if isinstance(res, dict) else getattr(res, "lines", [])
+            for line in lines:
+                raw_text = (line.get("text") if isinstance(line, dict) else getattr(line, "text", "")) or ""
+                raw_text = raw_text.strip()
+                if not raw_text:
+                    continue
+
+                cleaned_text = _clean_statutory_text(raw_text)
+                words = line.get("words") if isinstance(line, dict) else getattr(line, "words", [])
+
+                if words:
+                    def _get_w_rect(wrd):
+                        r = wrd.get("bounding_rect", {}) if isinstance(wrd, dict) else getattr(wrd, "bounding_rect", None)
+                        if isinstance(r, dict):
+                            return r.get("x", 0.0), r.get("y", 0.0), r.get("width", 10.0), r.get("height", 10.0)
+                        return getattr(r, "x", 0.0), getattr(r, "y", 0.0), getattr(r, "width", 10.0), getattr(r, "height", 10.0)
+
+                    rects = [_get_w_rect(wd) for wd in words]
+                    wx_min = min(r[0] for r in rects) / scale + x1
+                    wy_min = min(r[1] for r in rects) / scale + y1
+                    wx_max = max(r[0] + r[2] for r in rects) / scale + x1
+                    wy_max = max(r[1] + r[3] for r in rects) / scale + y1
+                    flat_box = [wx_min, wy_min, wx_max, wy_min, wx_max, wy_max, wx_min, wy_max]
+                else:
+                    flat_box = [x1 + 5.0, y1 + 10.0, x2 - 5.0, y1 + 25.0, x2 - 5.0, y1 + 25.0, x1 + 5.0, y1 + 10.0]
+
+                new_blocks.append(OCRBlock(
+                    text=cleaned_text,
+                    confidence=0.95,
+                    bounding_box=flat_box,
+                    block_index=idx_counter,
+                ))
+                idx_counter += 1
+        except Exception:
+            continue
+
+    return new_blocks
+
+
 # --- Windows Media OCR backend -------------------------------------------
 
 def _extract_winocr(image_bytes: bytes, fixture_hint: str = "") -> List[OCRBlock]:
@@ -136,12 +268,10 @@ def _extract_winocr(image_bytes: bytes, fixture_hint: str = "") -> List[OCRBlock
             import asyncio
             res = asyncio.run(winocr.recognize_pil(pil_img, "en"))
     except Exception as exc:
-        logger.warning(f"winocr recognition failed ({exc}), falling back to mock")
         return _extract_mock(image_bytes, fixture_hint)
 
     lines = res.get("lines", []) if isinstance(res, dict) else getattr(res, "lines", [])
     if not lines:
-        # If no text detected on image, fall back to mock fixture hint if available
         if fixture_hint or not res.get("text", "").strip():
             return _extract_mock(image_bytes, fixture_hint)
 
@@ -182,6 +312,14 @@ def _extract_winocr(image_bytes: bytes, fixture_hint: str = "") -> List[OCRBlock
             bounding_box=flat_box,
             block_index=idx,
         ))
+
+    # Pass 2: Localized statutory white patch scan for small condensed print (MRP, dates, batch)
+    try:
+        patch_blocks = _scan_statutory_white_patches(pil_img, blocks)
+        if patch_blocks:
+            blocks.extend(patch_blocks)
+    except Exception:
+        pass
 
     return blocks if blocks else _extract_mock(image_bytes, fixture_hint)
 

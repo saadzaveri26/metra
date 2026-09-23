@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { API_BASE } from "@/lib/api";
 import Image from "next/image";
 import {
@@ -24,9 +25,11 @@ interface RuleResult {
   detected_value: string;
   status: "COMPLIANT" | "NON_COMPLIANT" | "REVIEW";
   guidance: string;
+  box?: { x: number; y: number; width: number; height: number } | null;
 }
 
 export default function VendorSelfCheckPage() {
+  const { getToken } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [category, setCategory] = useState("food");
@@ -34,6 +37,9 @@ export default function VendorSelfCheckPage() {
   const [listedMrp, setListedMrp] = useState("");
   const [listedNetQty, setListedNetQty] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hoveredRuleId, setHoveredRuleId] = useState<string | null>(null);
+  const [showBoxes, setShowBoxes] = useState(true);
   const [results, setResults] = useState<{
     overall_status: "COMPLIANT" | "NON_COMPLIANT" | "REVIEW";
     compliance_rate: string;
@@ -52,6 +58,7 @@ export default function VendorSelfCheckPage() {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setResults(null);
+      setErrorMessage(null);
     }
   };
 
@@ -60,8 +67,10 @@ export default function VendorSelfCheckPage() {
     if (!selectedFile) return;
 
     setIsSubmitting(true);
+    setErrorMessage(null);
 
     try {
+      const token = await getToken();
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("interface", "vendor");
@@ -69,132 +78,69 @@ export default function VendorSelfCheckPage() {
       if (listedMrp) formData.append("listed_mrp", listedMrp);
       if (listedNetQty) formData.append("listed_net_quantity", listedNetQty);
 
-      // Attempt backend scan API
       const res = await fetch(`${API_BASE}/scans`, {
         method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const comp = data.compliance_results || {};
-        const rulesList: RuleResult[] = Object.keys(comp).map((key) => {
-          const item = comp[key];
-          return {
-            rule_id: item.rule_reference || key,
-            field: key.replace(/_/g, " ").toUpperCase(),
-            statutory_clause: item.act_section || "PCR 2011",
-            detected_value: item.effective_value || item.ai_value || "Detected from label",
-            status: item.status as any,
-            guidance: item.findings || item.rule_description,
-          };
-        });
-
-        setResults({
-          overall_status: data.compliance_summary?.overall_status || "COMPLIANT",
-          compliance_rate: `${Math.round(
-            ((data.compliance_summary?.compliant_count || 0) /
-              (data.compliance_summary?.total_fields_checked || 1)) *
-              100
-          )}%`,
-          rules: rulesList.length > 0 ? rulesList : getMockRules(isImported),
-          font_analysis: {
-            pdp_area_cm2: 180,
-            min_font_required_mm: 2.0,
-            detected_font_mm: 2.2,
-            font_compliant: true,
-          },
-        });
-      } else {
-        // Fallback to client simulated advisory self-check result
-        setResults({
-          overall_status: "COMPLIANT",
-          compliance_rate: "89%",
-          rules: getMockRules(isImported),
-          font_analysis: {
-            pdp_area_cm2: 180,
-            min_font_required_mm: 2.0,
-            detected_font_mm: 2.2,
-            font_compliant: true,
-          },
-        });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `Scan analysis failed with status ${res.status}`);
       }
-    } catch (err) {
-      // Fallback for offline dev
+
+      const data = await res.json();
+      const comp = data.compliance_results || {};
+      const rulesList: RuleResult[] = Object.keys(comp).map((key) => {
+        const item = comp[key];
+        const displayVal =
+          item.effective_value ||
+          item.ai_value ||
+          (item.status === "NON_COMPLIANT"
+            ? "Declaration Missing"
+            : item.findings || "Verified on Packaging");
+        return {
+          rule_id: key,
+          field: key.replace(/_/g, " ").toUpperCase(),
+          statutory_clause: item.rule_reference || item.act_section || "PCR 2011",
+          detected_value: displayVal,
+          status:
+            item.status === "COMPLIANT"
+              ? "COMPLIANT"
+              : item.status === "NON_COMPLIANT"
+              ? "NON_COMPLIANT"
+              : "REVIEW",
+          guidance: item.findings || item.rule_description,
+          box: item.normalized_box || null,
+        };
+      });
+
+      const totalChecked = data.compliance_summary?.total_fields_checked || rulesList.length || 1;
+      const compCount =
+        data.compliance_summary?.compliant_count ??
+        rulesList.filter((r) => r.status === "COMPLIANT").length;
+      const rate = `${Math.round((compCount / totalChecked) * 100)}%`;
+
       setResults({
-        overall_status: "COMPLIANT",
-        compliance_rate: "89%",
-        rules: getMockRules(isImported),
+        overall_status:
+          data.compliance_summary?.overall_status ||
+          (compCount === totalChecked ? "COMPLIANT" : "NON_COMPLIANT"),
+        compliance_rate: rate,
+        rules: rulesList,
         font_analysis: {
-          pdp_area_cm2: 180,
-          min_font_required_mm: 2.0,
-          detected_font_mm: 2.2,
-          font_compliant: true,
+          pdp_area_cm2: data.font_analysis?.pdp_area_cm2 ?? 180,
+          min_font_required_mm: data.font_analysis?.min_font_required_mm ?? 2.0,
+          detected_font_mm: data.font_analysis?.detected_font_mm ?? 2.2,
+          font_compliant: data.font_analysis?.font_compliant ?? true,
         },
       });
+    } catch (err: any) {
+      console.error("Vendor self-check error:", err);
+      setErrorMessage(err.message || "Failed to analyze packaging label artwork. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const getMockRules = (imported: boolean): RuleResult[] => [
-    {
-      rule_id: "PCR-001",
-      field: "MANUFACTURER DETAILS",
-      statutory_clause: "Rule 6(1)(a)",
-      detected_value: "Suvidha FMCG Pvt. Ltd., Plot 42, Andheri East, Mumbai 400069",
-      status: "COMPLIANT",
-      guidance: "Full legal entity name and street address verified.",
-    },
-    {
-      rule_id: "PCR-002",
-      field: "NET QUANTITY",
-      statutory_clause: "Rule 6(1)(b)",
-      detected_value: listedNetQty || "500 g",
-      status: "COMPLIANT",
-      guidance: "Declared in standard SI metric unit with appropriate numeral height.",
-    },
-    {
-      rule_id: "PCR-003",
-      field: "MAXIMUM RETAIL PRICE (MRP)",
-      statutory_clause: "Rule 6(1)(e)",
-      detected_value: listedMrp ? `₹${listedMrp}` : "₹240.00 (incl. of all taxes)",
-      status: "COMPLIANT",
-      guidance: "Format matches statutory mandatory wording.",
-    },
-    {
-      rule_id: "PCR-004",
-      field: "UNIT SALE PRICE (USP)",
-      statutory_clause: "Rule 6(11)",
-      detected_value: "₹0.48 / g",
-      status: "COMPLIANT",
-      guidance: "Accurately calculated per unit metric mass.",
-    },
-    {
-      rule_id: "PCR-005",
-      field: "MONTH & YEAR OF PKG",
-      statutory_clause: "Rule 6(1)(d)",
-      detected_value: "09/2026",
-      status: "COMPLIANT",
-      guidance: "Valid MM/YYYY packaging date detected.",
-    },
-    {
-      rule_id: "PCR-006",
-      field: "CONSUMER CARE DETAILS",
-      statutory_clause: "Rule 6(1)(da)",
-      detected_value: "care@suvidhafoods.in · 1800-200-9988",
-      status: "COMPLIANT",
-      guidance: "Email and toll-free telephone helpline verified.",
-    },
-    {
-      rule_id: "PCR-007",
-      field: "COUNTRY OF ORIGIN",
-      statutory_clause: "Rule 6(1)(g)",
-      detected_value: imported ? "Imported from Germany" : "Country of Origin: India",
-      status: "COMPLIANT",
-      guidance: "Explicit geographic origin declared prominently.",
-    },
-  ];
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
@@ -233,14 +179,70 @@ export default function VendorSelfCheckPage() {
               />
               {previewUrl ? (
                 <div className="space-y-2">
-                  <div className="relative h-48 w-full rounded-lg overflow-hidden border border-slate-200 bg-white flex items-center justify-center">
+                  <div className="relative min-h-[220px] max-h-[380px] w-full rounded-lg overflow-hidden border border-slate-200 bg-slate-950 flex items-center justify-center">
                     <img
                       src={previewUrl}
                       alt="Uploaded Label"
-                      className="max-h-full max-w-full object-contain"
+                      className="max-h-[380px] max-w-full object-contain"
                     />
+                    {showBoxes && results?.rules && (
+                      <div className="absolute inset-0 pointer-events-none">
+                        {results.rules
+                          .filter((r) => r.box && r.box.width > 0)
+                          .map((r) => {
+                            const isHovered = hoveredRuleId === r.rule_id;
+                            const isCompliant = r.status === "COMPLIANT";
+                            return (
+                              <div
+                                key={r.rule_id}
+                                style={{
+                                  left: `${r.box!.x}%`,
+                                  top: `${r.box!.y}%`,
+                                  width: `${r.box!.width}%`,
+                                  height: `${Math.max(r.box!.height, 3.2)}%`,
+                                }}
+                                onMouseEnter={() => setHoveredRuleId(r.rule_id)}
+                                onMouseLeave={() => setHoveredRuleId(null)}
+                                className={`absolute pointer-events-auto cursor-pointer rounded transition-all duration-150 ${
+                                  isHovered
+                                    ? "ring-4 ring-sky-400 bg-sky-400/35 z-30 shadow-xl"
+                                    : isCompliant
+                                    ? "border-2 border-emerald-400 bg-emerald-500/20 hover:bg-emerald-500/35 z-20"
+                                    : "border-2 border-amber-400 bg-amber-500/25 hover:bg-amber-500/40 z-20"
+                                }`}
+                              >
+                                <div
+                                  className={`absolute -top-5 left-0 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-tight shadow flex items-center gap-1 whitespace-nowrap pointer-events-none ${
+                                    isHovered
+                                      ? "bg-[#0867c9] text-white z-40 scale-105"
+                                      : isCompliant
+                                      ? "bg-emerald-700 text-white"
+                                      : "bg-amber-600 text-white"
+                                  }`}
+                                >
+                                  <span>{r.field}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-xs font-semibold text-[#0867c9]">Click or drop to replace image</p>
+                  <div className="flex items-center justify-between text-xs">
+                    <p className="font-semibold text-[#0867c9]">Click or drop to replace image</p>
+                    {results?.rules && results.rules.some((r) => r.box && r.box.width > 0) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowBoxes(!showBoxes);
+                        }}
+                        className="text-[11px] font-medium text-slate-500 hover:text-slate-800 underline"
+                      >
+                        {showBoxes ? "Hide Detection Boxes" : "Show Detection Boxes"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2 py-4">
@@ -312,11 +314,19 @@ export default function VendorSelfCheckPage() {
               </label>
             </div>
 
+            {/* Error Banner */}
+            {errorMessage && (
+              <div className="p-3 bg-red-50 text-red-700 rounded-xl text-xs border border-red-200 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{errorMessage}</span>
+              </div>
+            )}
+
             {/* Submit Button */}
             <button
               type="submit"
               disabled={!selectedFile || isSubmitting}
-              className="w-full py-2.5 rounded-lg bg-[#0867c9] hover:bg-[#064e9a] disabled:bg-slate-300 text-white text-xs font-bold shadow transition-all flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-lg bg-[#0867c9] hover:bg-[#064e9a] disabled:bg-slate-300 text-white text-xs font-bold shadow transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
@@ -426,37 +436,51 @@ export default function VendorSelfCheckPage() {
 
               {/* Mandatory Declarations Matrix */}
               <div className="bg-white rounded-xl border border-[#dce7f2] shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-[#dce7f2] bg-[#f8fafc]">
+                <div className="p-4 border-b border-[#dce7f2] bg-[#f8fafc] flex items-center justify-between">
                   <h3 className="text-xs font-bold text-[#10243e] uppercase tracking-wider">
                     Mandatory Declarations Matrix (PCR 2011)
                   </h3>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    {results.rules.length} Statutory Checks
+                  </span>
                 </div>
                 <div className="divide-y divide-slate-100">
-                  {results.rules.map((rule) => (
-                    <div key={rule.rule_id} className="p-4 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-[#10243e]">{rule.field}</span>
-                          <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                            {rule.statutory_clause}
+                  {results.rules.map((rule) => {
+                    const isHovered = hoveredRuleId === rule.rule_id;
+                    return (
+                      <div
+                        key={rule.rule_id}
+                        id={`rule-card-${rule.rule_id}`}
+                        onMouseEnter={() => setHoveredRuleId(rule.rule_id)}
+                        onMouseLeave={() => setHoveredRuleId(null)}
+                        className={`p-4 space-y-1.5 transition-all duration-150 ${
+                          isHovered ? "bg-sky-50/70 ring-1 ring-inset ring-sky-300" : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-[#10243e]">{rule.field}</span>
+                            <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                              {rule.statutory_clause}
+                            </span>
+                          </div>
+                          <span
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+                              rule.status === "COMPLIANT"
+                                ? "bg-[#e8f8f0] text-[#159a68]"
+                                : "bg-[#feecec] text-[#dc2626]"
+                            }`}
+                          >
+                            {rule.status}
                           </span>
                         </div>
-                        <span
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-                            rule.status === "COMPLIANT"
-                              ? "bg-[#e8f8f0] text-[#159a68]"
-                              : "bg-[#feecec] text-[#dc2626]"
-                          }`}
-                        >
-                          {rule.status}
-                        </span>
+                        <p className="text-xs text-slate-800 bg-slate-50 p-2.5 rounded-lg border border-slate-200 font-mono break-words leading-relaxed">
+                          {rule.detected_value}
+                        </p>
+                        <p className="text-[11px] text-slate-500">{rule.guidance}</p>
                       </div>
-                      <p className="text-xs text-slate-700 bg-slate-50 p-2 rounded border border-slate-200 font-mono">
-                        {rule.detected_value}
-                      </p>
-                      <p className="text-[11px] text-slate-500">{rule.guidance}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

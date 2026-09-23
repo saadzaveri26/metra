@@ -85,6 +85,7 @@ def evaluate_compliance(
         "penalty_clause": penal_clause_s36,
         "source_block_index": mfg_src.get("source_block_index"),
         "bounding_box": mfg_src.get("bounding_box"),
+        "normalized_box": mfg_src.get("normalized_box"),
         "ai_value": mfg_ai,
         "effective_value": mfg_val,
         "is_overridden": mfg_ovr,
@@ -121,6 +122,7 @@ def evaluate_compliance(
         "penalty_clause": penal_clause_s36,
         "source_block_index": qty_src.get("source_block_index"),
         "bounding_box": qty_src.get("bounding_box"),
+        "normalized_box": qty_src.get("normalized_box"),
         "ai_value": qty_ai,
         "effective_value": qty_val,
         "is_overridden": qty_ovr,
@@ -137,7 +139,7 @@ def evaluate_compliance(
         mrp_status = "NON_COMPLIANT"
         mrp_findings = "Missing Maximum Retail Price (MRP) declaration."
     else:
-        has_taxes_phrase = any(phrase in mrp_raw_lower for phrase in ["incl", "inclusive", "all taxes", "tax", "ird", "ind", "inc"])
+        has_taxes_phrase = any(phrase in mrp_raw_lower for phrase in ["incl", "inclusive", "all taxes", "tax", "ird", "ind", "inc", "cfdl", "taxes", "taxe", "all tax"])
         # F4 fix: If overridden, check the override value itself for tax phrasing
         # rather than blindly marking compliant
         if mrp_ovr:
@@ -161,6 +163,7 @@ def evaluate_compliance(
         "penalty_clause": penal_clause_s36,
         "source_block_index": mrp_src.get("source_block_index"),
         "bounding_box": mrp_src.get("bounding_box"),
+        "normalized_box": mrp_src.get("normalized_box"),
         "ai_value": mrp_ai,
         "effective_value": mrp_val,
         "is_overridden": mrp_ovr,
@@ -191,6 +194,7 @@ def evaluate_compliance(
         "penalty_clause": penal_clause_s36,
         "source_block_index": org_src.get("source_block_index"),
         "bounding_box": org_src.get("bounding_box"),
+        "normalized_box": org_src.get("normalized_box"),
         "ai_value": org_ai,
         "effective_value": org_val,
         "is_overridden": org_ovr,
@@ -218,6 +222,7 @@ def evaluate_compliance(
         "penalty_clause": penal_clause_s36,
         "source_block_index": date_src.get("source_block_index"),
         "bounding_box": date_src.get("bounding_box"),
+        "normalized_box": date_src.get("normalized_box"),
         "ai_value": date_ai,
         "effective_value": date_val,
         "is_overridden": date_ovr,
@@ -248,6 +253,7 @@ def evaluate_compliance(
         "penalty_clause": penal_clause_s36,
         "source_block_index": care_src.get("source_block_index"),
         "bounding_box": care_src.get("bounding_box"),
+        "normalized_box": care_src.get("normalized_box"),
         "ai_value": care_ai,
         "effective_value": care_val,
         "is_overridden": care_ovr,

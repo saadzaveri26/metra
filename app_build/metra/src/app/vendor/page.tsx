@@ -18,6 +18,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { API_BASE } from "@/lib/api";
+import { formatScanDateTime, resolveProductName } from "@/lib/formatters";
 
 interface RecentCheck {
   id: string;
@@ -71,18 +72,11 @@ export default function VendorDashboard() {
           const overall = s.compliance_summary?.overall_status;
           const status: "COMPLIANT" | "NON_COMPLIANT" | "REVIEW" =
             overall === "COMPLIANT" ? "COMPLIANT" : overall === "NON_COMPLIANT" ? "NON_COMPLIANT" : "REVIEW";
-          const d = s.created_at ? new Date(s.created_at) : new Date();
-
           return {
             id: s.id,
-            name: s.structured_fields?.product_name?.value || "Packaged Product Artwork",
+            name: resolveProductName(s),
             category: s.structured_fields?.category?.value || "Packaged Commodity",
-            date: d.toLocaleDateString("en-IN", {
-              day: "numeric",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
+            date: formatScanDateTime(s.created_at),
             status,
             declaredMrp: s.structured_fields?.mrp?.value ? `₹${s.structured_fields.mrp.value}` : "₹--",
             netQty: s.structured_fields?.net_quantity?.value || "--",
@@ -113,7 +107,7 @@ export default function VendorDashboard() {
   const openCases = overview?.open_cases_count ?? 0;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <main id="main-content" className="space-y-6 max-w-7xl mx-auto">
       {/* Statutory Safe Harbor Advisory Banner */}
       <div className="bg-gradient-to-r from-[#0d2a4d] to-[#123966] text-white rounded-xl p-5 shadow-sm border border-[#1e4e85] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-start gap-3.5">
@@ -122,7 +116,7 @@ export default function VendorDashboard() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-sm tracking-wide text-white uppercase">
+              <h2 className="font-semibold text-sm tracking-wide text-white">
                 Statutory Advisory Safe Harbor
               </h2>
               <span className="text-[10px] font-semibold bg-[#159a68] text-white px-2 py-0.5 rounded-full">
@@ -145,71 +139,75 @@ export default function VendorDashboard() {
 
       {/* KPI Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1 */}
-        <div className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-slate-500">Pre-Market Checks</p>
-            <div className="w-8 h-8 rounded-lg bg-[#eaf4ff] text-[#0867c9] flex items-center justify-center">
-              <ScanLine className="w-4 h-4" />
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-xl p-5 border border-[#dce7f2]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="skeleton skeleton-text" style={{ width: "50%" }}></div>
+                <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 8 }}></div>
+              </div>
+              <div className="skeleton skeleton-stat"></div>
+              <div className="skeleton skeleton-text" style={{ width: "65%" }}></div>
             </div>
-          </div>
-          <p className="text-2xl font-black text-[#10243e] mt-2">
-            {isLoading ? "..." : totalChecks}
-          </p>
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-[#159a68] font-medium">
-            <span>{totalChecks > 0 ? `${totalChecks} completed` : "No checks recorded"}</span>
-            <span className="text-slate-400">· Pre-launch verified</span>
-          </div>
-        </div>
+          ))
+        ) : (
+          <>
+            <div className="bg-white rounded-xl p-5 border border-[#dce7f2] hover:shadow-[0_8px_24px_rgba(6,30,55,0.06)] transition-shadow animate-in">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-slate-500">Pre-market checks</p>
+                <div className="w-8 h-8 rounded-lg bg-[#eaf4ff] text-[#0867c9] flex items-center justify-center">
+                  <ScanLine className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-[#10243e] mt-2 tabular-nums">{totalChecks}</p>
+              <div className="flex items-center gap-1.5 mt-2 text-xs text-[#0867c9] font-medium">
+                <span>{totalChecks > 0 ? `${totalChecks} completed` : "No checks recorded"}</span>
+              </div>
+            </div>
 
-        {/* Metric 2 */}
-        <div className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-slate-500">Advisory Pass Rate</p>
-            <div className="w-8 h-8 rounded-lg bg-[#e8f8f0] text-[#159a68] flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
+            {/* Metric 2 */}
+            <div className="bg-white rounded-xl p-5 border border-[#dce7f2] hover:shadow-[0_8px_24px_rgba(6,30,55,0.06)] transition-shadow animate-in animate-in-delay-1">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-slate-500">Advisory pass rate</p>
+                <div className="w-8 h-8 rounded-lg bg-[#e8f8f0] text-[#159a68] flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-[#10243e] mt-2 tabular-nums">{passRate}</p>
+              <div className="flex items-center gap-1.5 mt-2 text-xs text-[#159a68] font-medium">
+                <span>{totalChecks > 0 ? "Compliant on first check" : "Awaiting check"}</span>
+              </div>
             </div>
-          </div>
-          <p className="text-2xl font-black text-[#10243e] mt-2">
-            {isLoading ? "..." : passRate}
-          </p>
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-[#159a68] font-medium">
-            <span>{totalChecks > 0 ? "Compliant on first check" : "Awaiting check"}</span>
-            <span className="text-slate-400">· PCR compliant</span>
-          </div>
-        </div>
 
-        {/* Metric 3 */}
-        <div className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-slate-500">Compliance Inquiries</p>
-            <div className="w-8 h-8 rounded-lg bg-[#fef5e7] text-[#e69b00] flex items-center justify-center">
-              <FileQuestion className="w-4 h-4" />
+            {/* Metric 3 */}
+            <div className="bg-white rounded-xl p-5 border border-[#dce7f2] hover:shadow-[0_8px_24px_rgba(6,30,55,0.06)] transition-shadow animate-in animate-in-delay-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-slate-500">Compliance inquiries</p>
+                <div className="w-8 h-8 rounded-lg bg-[#fef5e7] text-[#e69b00] flex items-center justify-center">
+                  <FileQuestion className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-[#10243e] mt-2 tabular-nums">{openCases}</p>
+              <div className="flex items-center gap-1.5 mt-2 text-xs text-[#e69b00] font-medium">
+                <span>{openCases > 0 ? "Action required" : "No pending notices"}</span>
+              </div>
             </div>
-          </div>
-          <p className="text-2xl font-black text-[#10243e] mt-2">
-            {isLoading ? "..." : openCases}
-          </p>
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-[#e69b00] font-medium">
-            <span>{openCases > 0 ? "Action required" : "No pending notices"}</span>
-            <span className="text-slate-400">· Official inquiries</span>
-          </div>
-        </div>
 
-        {/* Metric 4 */}
-        <div className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-slate-500">Mandatory Rules Monitored</p>
-            <div className="w-8 h-8 rounded-lg bg-[#f4effe] text-[#7c3aed] flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
+            {/* Metric 4 */}
+            <div className="bg-white rounded-xl p-5 border border-[#dce7f2] hover:shadow-[0_8px_24px_rgba(6,30,55,0.06)] transition-shadow animate-in animate-in-delay-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-slate-500">Mandatory rules monitored</p>
+                <div className="w-8 h-8 rounded-lg bg-[#f4effe] text-[#7c3aed] flex items-center justify-center">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-[#10243e] mt-2 tabular-nums">9 / 9</p>
+              <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-500 font-medium">
+                <span>Full PCR 2011 scope</span>
+              </div>
             </div>
-          </div>
-          <p className="text-2xl font-black text-[#10243e] mt-2">9 / 9</p>
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-500 font-medium">
-            <span>Full PCR 2011 scope</span>
-            <span className="text-slate-400">· Active</span>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Quick Workflows Grid */}
@@ -398,6 +396,6 @@ export default function VendorDashboard() {
           </table>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

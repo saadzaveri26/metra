@@ -18,6 +18,7 @@ import {
   ScanLine,
 } from "lucide-react";
 import { API_BASE } from "@/lib/api";
+import { formatScanDateTime, resolveProductName } from "@/lib/formatters";
 
 interface ReportItem {
   id: string;
@@ -56,14 +57,13 @@ export default function OfficerReportsPage() {
               ? "Rule 7 Field Review Audit"
               : "Statutory Packaging Audit";
 
-          const d = s.created_at ? new Date(s.created_at) : new Date();
           return {
             id: `REP-${(s.id || "").slice(-8).toUpperCase()}`,
-            productName: s.structured_fields?.product_name?.value || "Unlabeled Package Commodity",
+            productName: resolveProductName(s),
             manufacturer: s.structured_fields?.manufacturer?.value || "Declared Manufacturer Pending",
             reportType,
             status: statusText,
-            date: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+            date: formatScanDateTime(s.created_at),
             jurisdiction: s.jurisdiction || "Assigned Division",
           };
         });

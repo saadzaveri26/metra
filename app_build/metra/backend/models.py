@@ -88,6 +88,22 @@ class Scan(Base):
     user = relationship("User", back_populates="scans")
     case = relationship("Case", back_populates="scan", uselist=False)
 
+    @property
+    def ocr_blocks(self):
+        if self.structured_fields and isinstance(self.structured_fields, dict):
+            return self.structured_fields.get("_metadata", {}).get("ocr_blocks")
+        return None
+
+    @property
+    def image_dimensions(self):
+        if self.structured_fields and isinstance(self.structured_fields, dict):
+            meta = self.structured_fields.get("_metadata", {})
+            w = meta.get("image_width")
+            h = meta.get("image_height")
+            if w and h:
+                return {"width": w, "height": h}
+        return None
+
 
 class Case(Base):
     """

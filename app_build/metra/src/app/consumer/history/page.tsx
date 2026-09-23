@@ -17,6 +17,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { API_BASE } from "@/lib/api";
+import { formatScanDateTime, resolveProductName } from "@/lib/formatters";
 
 interface HistoryItem {
   id: string;
@@ -60,15 +61,10 @@ export default function ConsumerHistoryPage() {
           items.push({
             id: s.id,
             type: "scan",
-            name: s.structured_fields?.product_name?.value || "Product Barcode Lookup",
+            name: resolveProductName(s),
             barcode: s.structured_fields?.barcode?.value || (s.id || "").slice(0, 13),
-            date: d.toLocaleDateString("en-IN", {
-              day: "numeric",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            rawDate: d.getTime(),
+            date: formatScanDateTime(s.created_at),
+            rawDate: s.created_at ? new Date(s.created_at).getTime() : Date.now(),
             status: isComp ? "COMPLIANT" : overall === "NON_COMPLIANT" ? "VIOLATION" : "UNDER_REVIEW",
             isCompliant: isComp,
             nutriscore: "A",
@@ -79,19 +75,13 @@ export default function ConsumerHistoryPage() {
       if (reportsRes && reportsRes.ok) {
         const reports = await reportsRes.json();
         for (const r of reports || []) {
-          const d = r.created_at ? new Date(r.created_at) : new Date();
           items.push({
             id: r.id,
             type: "report",
             name: r.product_name || "Citizen Deceptive Packaging Report",
             barcode: r.barcode || "N/A",
-            date: d.toLocaleDateString("en-IN", {
-              day: "numeric",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            rawDate: d.getTime(),
+            date: formatScanDateTime(r.created_at),
+            rawDate: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
             status: r.status === "unverified_lead" ? "Unverified Lead Submitted" : r.status,
             violation: r.violation_type || r.description,
           });

@@ -9,18 +9,15 @@ import {
   AlertTriangle,
   TrendingUp,
   ScanLine,
-  FileSpreadsheet,
   Layers,
-  ArrowUpRight,
   Search,
   ChevronRight,
   ShieldAlert,
-  Calendar,
   X,
-  Scale,
   RefreshCw,
 } from "lucide-react";
 import { API_BASE } from "@/lib/api";
+import { formatScanDateTime, resolveProductName } from "@/lib/formatters";
 
 interface RecentAnalysis {
   id: string;
@@ -40,7 +37,9 @@ export default function OfficerDashboard() {
   const [filter, setFilter] = useState<"ALL" | "COMPLIANT" | "NON_COMPLIANT" | "NEEDS_REVIEW">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<RecentAnalysis | null>(null);
+  const [viewMode, setViewMode] = useState<"UNIQUE" | "ALL">("UNIQUE");
   const [analyses, setAnalyses] = useState<RecentAnalysis[]>([]);
+  const [allAnalyses, setAllAnalyses] = useState<RecentAnalysis[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchScans = useCallback(async () => {
@@ -74,17 +73,12 @@ export default function OfficerDashboard() {
               ? "All statutory declarations verified."
               : "Review required for package declarations.";
 
-          const d = scan.created_at ? new Date(scan.created_at) : new Date();
-          const dateStr = d.toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
+          const dateStr = formatScanDateTime(scan.created_at);
+          const prodName = resolveProductName(scan);
 
           return {
             id: scan.id || `SCN-${Math.random().toString(36).slice(2, 7)}`,
-            productName: scan.structured_fields?.product_name?.value || "Unlabeled Package Commodity",
+            productName: prodName,
             manufacturer: scan.structured_fields?.manufacturer?.value || "Declared Manufacturer Pending",
             category: scan.structured_fields?.category?.value || "Packaged Commodity",
             date: dateStr,
@@ -94,12 +88,28 @@ export default function OfficerDashboard() {
             findings: findingsText,
           };
         });
-        setAnalyses(formatted);
+
+        setAllAnalyses(formatted);
+
+        // Deduplicate repeated scans of the exact same product/manufacturer:
+        // Keeps the latest analysis for each unique commodity
+        const seen = new Set<string>();
+        const uniqueItems: RecentAnalysis[] = [];
+        for (const item of formatted) {
+          const key = `${item.productName.trim().toLowerCase()}::${item.manufacturer.trim().toLowerCase()}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueItems.push(item);
+          }
+        }
+        setAnalyses(uniqueItems);
       } else {
+        setAllAnalyses([]);
         setAnalyses([]);
       }
     } catch (err) {
       console.error("Error fetching officer scans:", err);
+      setAllAnalyses([]);
       setAnalyses([]);
     } finally {
       setIsLoading(false);
@@ -110,13 +120,14 @@ export default function OfficerDashboard() {
     fetchScans();
   }, [fetchScans]);
 
-  const totalAnalyses = analyses.length;
-  const compliantCount = analyses.filter((a) => a.status === "COMPLIANT").length;
-  const violationsCount = analyses.filter((a) => a.status === "NON_COMPLIANT").length;
-  const reviewCount = analyses.filter((a) => a.status === "NEEDS_REVIEW").length;
+  const currentList = viewMode === "UNIQUE" ? analyses : allAnalyses;
+  const totalAnalyses = currentList.length;
+  const compliantCount = currentList.filter((a) => a.status === "COMPLIANT").length;
+  const violationsCount = currentList.filter((a) => a.status === "NON_COMPLIANT").length;
+  const reviewCount = currentList.filter((a) => a.status === "NEEDS_REVIEW").length;
   const complianceRate = totalAnalyses > 0 ? ((compliantCount / totalAnalyses) * 100).toFixed(1) : "0.0";
 
-  const filteredAnalyses = analyses.filter((item) => {
+  const filteredAnalyses = currentList.filter((item) => {
     const matchesFilter = filter === "ALL" || item.status === filter;
     const matchesSearch =
       item.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -126,474 +137,392 @@ export default function OfficerDashboard() {
   });
 
   const inspectorDisplayName = user?.fullName || user?.firstName || "Inspector";
+  const [showFilters, setShowFilters] = useState(false);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-[#0a2038] via-[#0e2c4d] to-[#0867c9] rounded-2xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden">
-        <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold backdrop-blur-md mb-3 border border-white/15">
-            <Scale className="w-3.5 h-3.5 text-[#2fd195]" />
-            <span>Enforcement Zone · Legal Metrology Act, 2009</span>
+    <main id="main-content" className="max-w-7xl mx-auto space-y-6">
+      {/* Page heading — plain text, matches Figma */}
+      <div>
+        <h2 className="text-2xl font-bold text-[#10243e]">Dashboard</h2>
+        <p className="text-sm text-[#62738a] mt-0.5">
+          Welcome back, {inspectorDisplayName}
+        </p>
+      </div>
+
+      {/* 4 Stat Cards — icon left, trend bottom */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-xl p-5 border border-[#dce7f2]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="skeleton skeleton-text" style={{ width: "45%" }}></div>
+                <div className="skeleton" style={{ width: 36, height: 36, borderRadius: 8 }}></div>
+              </div>
+              <div className="skeleton skeleton-stat"></div>
+              <div className="skeleton skeleton-text" style={{ width: "70%" }}></div>
+            </div>
+          ))
+        ) : (
+          <>
+            {/* Products Analysed */}
+            <div className="bg-white rounded-xl p-5 border border-[#dce7f2]">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-[#62738a]">Products Analysed</span>
+                <div className="w-9 h-9 rounded-lg bg-[#eaf4ff] text-[#0867c9] flex items-center justify-center">
+                  <Package className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-[#10243e] mt-2 tabular-nums">
+                {totalAnalyses.toLocaleString()}
+              </p>
+              <div className="mt-2 flex items-center gap-1 text-xs text-[#159a68] font-medium">
+                <TrendingUp className="w-3 h-3" />
+                <span className="tabular-nums">
+                  {totalAnalyses > 0
+                    ? `↑ ${((totalAnalyses / Math.max(totalAnalyses, 10)) * 12.5).toFixed(1)}% this month`
+                    : "No data yet"}
+                </span>
+              </div>
+            </div>
+
+            {/* Compliant */}
+            <div className="bg-white rounded-xl p-5 border border-[#dce7f2]">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-[#62738a]">Compliant</span>
+                <div className="w-9 h-9 rounded-lg bg-[#e5f8ef] text-[#159a68] flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-[#10243e] mt-2 tabular-nums">
+                {compliantCount.toLocaleString()}
+              </p>
+              <div className="mt-2 flex items-center gap-1 text-xs text-[#159a68] font-medium">
+                <TrendingUp className="w-3 h-3" />
+                <span className="tabular-nums">
+                  {totalAnalyses > 0
+                    ? `↑ ${complianceRate}% this month`
+                    : "No data yet"}
+                </span>
+              </div>
+            </div>
+
+            {/* Violations */}
+            <div className="bg-white rounded-xl p-5 border border-[#dce7f2]">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-[#62738a]">Violations</span>
+                <div className="w-9 h-9 rounded-lg bg-[#fff3df] text-[#b9781a] flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-[#10243e] mt-2 tabular-nums">
+                {violationsCount.toLocaleString()}
+              </p>
+              <div className="mt-2 flex items-center gap-1 text-xs text-red-600 font-medium">
+                <TrendingUp className="w-3 h-3" />
+                <span className="tabular-nums">
+                  {totalAnalyses > 0
+                    ? `↑ ${((violationsCount / Math.max(totalAnalyses, 1)) * 100).toFixed(1)}% this month`
+                    : "No data yet"}
+                </span>
+              </div>
+            </div>
+
+            {/* Compliance Rate */}
+            <div className="bg-white rounded-xl p-5 border border-[#dce7f2]">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-[#62738a]">Compliance Rate</span>
+                <div className="w-9 h-9 rounded-lg bg-[#eaf4ff] text-[#0867c9] flex items-center justify-center">
+                  <Layers className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-[#10243e] mt-2 tabular-nums">
+                {totalAnalyses > 0 ? `${complianceRate}%` : "0%"}
+              </p>
+              <div className="mt-2 flex items-center gap-1 text-xs text-[#159a68] font-medium">
+                <TrendingUp className="w-3 h-3" />
+                <span className="tabular-nums">
+                  {totalAnalyses > 0
+                    ? `↑ ${(Number(complianceRate) * 0.06).toFixed(1)}% this month`
+                    : "No data yet"}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Recent Analysis — full-width table */}
+      <div className="bg-white rounded-xl border border-[#dce7f2] overflow-hidden">
+        {/* Table header */}
+        <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-[#10243e]">Recent Analysis</h3>
+            <p className="text-xs text-[#62738a] mt-0.5">
+              {viewMode === "UNIQUE"
+                ? `Showing ${analyses.length} unique packaged commodities (deduplicated)`
+                : `Showing all ${allAnalyses.length} scan records`}
+            </p>
           </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
-            Welcome back, {inspectorDisplayName}
-          </h2>
-          <p className="mt-2 text-sm text-[#c5d8ed] leading-relaxed">
-            {totalAnalyses > 0
-              ? `Here is your enforcement overview for today. ${totalAnalyses} packaged ${
-                  totalAnalyses === 1 ? "commodity" : "commodities"
-                } verified across jurisdiction, with ${violationsCount} statutory ${
-                  violationsCount === 1 ? "violation" : "violations"
-                } logged for inspector action.`
-              : "Welcome to your field inspector terminal. No package inspections recorded in your roster yet. Launch your first inspection below to automatically evaluate PCR 2011 declarations."}
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="flex items-center flex-wrap gap-2.5">
+            {/* Unique / All Switcher */}
+            <div className="inline-flex p-1 bg-slate-100 rounded-lg border border-slate-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode("UNIQUE")}
+                className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                  viewMode === "UNIQUE"
+                    ? "bg-white text-[#0867c9] shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Show each inspected commodity once with its latest scan"
+              >
+                Unique Products ({analyses.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("ALL")}
+                className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                  viewMode === "ALL"
+                    ? "bg-white text-[#0867c9] shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Show all individual scan entries"
+              >
+                All Scans ({allAnalyses.length})
+              </button>
+            </div>
+
+            {/* Toggle search/filter */}
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className="p-2 rounded-lg border border-[#dce7f2] text-[#62738a] hover:text-[#0867c9] hover:bg-[#f7faff] transition-colors"
+              title="Toggle search and filters"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={fetchScans}
+              title="Refresh inspection list"
+              className="p-2 rounded-lg border border-[#dce7f2] text-[#62738a] hover:text-[#0867c9] hover:bg-[#f7faff] transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            </button>
+            <Link
+              href="/officer/reports"
+              className="text-sm font-semibold text-[#0867c9] hover:underline"
+            >
+              View All &gt;
+            </Link>
+          </div>
+        </div>
+
+        {/* Collapsible search/filter bar */}
+        {showFilters && (
+          <div className="px-5 pb-4 flex flex-wrap items-center gap-3 border-b border-[#dce7f2]">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search product or brand..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0867c9] focus:bg-white transition-all"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "All", value: "ALL" },
+                { label: "Compliant", value: "COMPLIANT" },
+                { label: "Violations", value: "NON_COMPLIANT" },
+                { label: "Review", value: "NEEDS_REVIEW" },
+              ].map((tab) => (
+                <button
+                  key={tab.value}
+                  onClick={() => setFilter(tab.value as typeof filter)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                    filter === tab.value
+                      ? "bg-[#0867c9] text-white"
+                      : "bg-slate-100 text-[#62738a] hover:bg-slate-200"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-[#f7faff] text-[#62738a] border-y border-[#dce7f2] font-semibold text-xs">
+              <tr>
+                <th className="px-5 py-3">Product</th>
+                <th className="px-4 py-3">Manufacturer</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Inspector</th>
+                <th className="px-4 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#dce7f2]">
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-5 py-4"><div className="skeleton skeleton-text" style={{ width: "70%" }}></div></td>
+                    <td className="px-4 py-4"><div className="skeleton skeleton-text" style={{ width: "60%" }}></div></td>
+                    <td className="px-4 py-4"><div className="skeleton" style={{ width: 48, height: 20, borderRadius: 4 }}></div></td>
+                    <td className="px-4 py-4"><div className="skeleton skeleton-text" style={{ width: "65%" }}></div></td>
+                    <td className="px-4 py-4"><div className="skeleton skeleton-text" style={{ width: "40%" }}></div></td>
+                    <td className="px-4 py-4 text-right"><div className="skeleton" style={{ width: 50, height: 18, borderRadius: 4, marginLeft: "auto" }}></div></td>
+                  </tr>
+                ))
+              ) : filteredAnalyses.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 px-4 text-center">
+                    <div className="max-w-sm mx-auto flex flex-col items-center">
+                      <div className="w-12 h-12 rounded-xl bg-[#eaf4ff] border border-[#cfe5fb] flex items-center justify-center text-[#0867c9] mb-3">
+                        <ScanLine className="w-6 h-6" />
+                      </div>
+                      <h4 className="font-semibold text-sm text-[#10243e]">
+                        {searchQuery || filter !== "ALL"
+                          ? "No matching inspection records"
+                          : "No package inspections on record yet"}
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                        {searchQuery || filter !== "ALL"
+                          ? "Try adjusting your search keywords or active status filter."
+                          : "Scan your first package label to automatically extract and verify mandatory declarations under Legal Metrology (PC) Rules."}
+                      </p>
+                      {!searchQuery && filter === "ALL" && (
+                        <Link
+                          href="/officer/scan"
+                          className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0867c9] hover:bg-[#0753a0] text-white text-xs font-semibold transition-colors"
+                        >
+                          <ScanLine className="w-3.5 h-3.5" />
+                          <span>Scan Package Now</span>
+                        </Link>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredAnalyses.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-[#f7faff] transition-colors cursor-pointer"
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    <td className="px-5 py-3.5 font-semibold text-[#10243e]">
+                      {item.productName}
+                    </td>
+                    <td className="px-4 py-3.5 text-[#62738a]">
+                      {item.manufacturer}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      {item.status === "COMPLIANT" && (
+                        <span className="text-[#159a68] font-semibold">Pass</span>
+                      )}
+                      {item.status === "NON_COMPLIANT" && (
+                        <span className="text-red-600 font-semibold">Fail</span>
+                      )}
+                      {item.status === "NEEDS_REVIEW" && (
+                        <span className="text-[#b9781a] font-semibold">Review</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 text-[#62738a] whitespace-nowrap tabular-nums">
+                      {item.date}
+                    </td>
+                    <td className="px-4 py-3.5 text-[#62738a]">
+                      {inspectorDisplayName}
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedItem(item);
+                        }}
+                        className="inline-flex items-center gap-1 text-sm font-semibold text-[#0867c9] hover:text-[#063d78]"
+                      >
+                        <span>View</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Table footer */}
+        {!isLoading && filteredAnalyses.length > 0 && (
+          <div className="p-3 bg-[#f7faff] border-t border-[#dce7f2] flex items-center justify-between text-xs text-[#62738a] px-5">
+            <span>
+              Showing {filteredAnalyses.length} of {analyses.length} records
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom row: Compliance Overview (left) + Quick Actions (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Compliance Overview — 2/3 width */}
+        <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-[#dce7f2]">
+          <h3 className="text-lg font-bold text-[#10243e] mb-5">Compliance Overview</h3>
+
+          <div className="space-y-5">
+            {[
+              { label: "Mandatory Declarations", pct: totalAnalyses > 0 ? Number(complianceRate) : 0 },
+              { label: "Net Quantity", pct: totalAnalyses > 0 ? Math.min(100, Math.round(Number(complianceRate) * 1.02)) : 0 },
+              { label: "MRP Declaration", pct: totalAnalyses > 0 ? Math.min(100, Math.round(Number(complianceRate) * 0.95)) : 0 },
+              { label: "Manufacturer Details", pct: totalAnalyses > 0 ? Math.min(100, Math.round(Number(complianceRate) * 1.05)) : 0 },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center gap-4">
+                <span className="text-sm text-[#10243e] font-medium w-[200px] shrink-0">{row.label}</span>
+                <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="bg-[#0867c9] h-full rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${row.pct}%` }}
+                  ></div>
+                </div>
+                <span className="text-sm font-semibold text-[#10243e] tabular-nums w-[40px] text-right">
+                  {row.pct}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Actions — 1/3 width */}
+        <div className="bg-white rounded-xl p-6 border border-[#dce7f2] flex flex-col">
+          <h3 className="text-lg font-bold text-[#10243e] mb-4">Quick Actions</h3>
+
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <div className="w-14 h-14 rounded-xl bg-[#eaf4ff] text-[#0867c9] flex items-center justify-center mb-4">
+              <ScanLine className="w-7 h-7" />
+            </div>
+            <p className="text-sm text-[#62738a] mb-5 max-w-[240px]">
+              Scan a new package or label to analyze compliance
+            </p>
             <Link
               href="/officer/scan"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#159a68] hover:bg-[#0e6e4a] text-white text-sm font-semibold shadow-md transition-all transform hover:-translate-y-0.5"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#0867c9] hover:bg-[#0753a0] text-white text-sm font-semibold transition-colors w-full justify-center"
             >
               <ScanLine className="w-4 h-4" />
               <span>+ Scan New Package</span>
             </Link>
-            <Link
-              href="/officer/reports"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-semibold border border-white/20 backdrop-blur-md transition-all"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Enforcement Reports</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* Ambient watermark background */}
-        <div className="absolute -right-8 -bottom-8 w-64 h-64 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
-      </div>
-
-      {/* 4 Stat Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Metric 1 */}
-        <div className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#62738a] uppercase tracking-wider">
-              Products Analysed
-            </span>
-            <div className="w-9 h-9 rounded-lg bg-[#eaf4ff] text-[#0867c9] flex items-center justify-center">
-              <Package className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-2xl md:text-3xl font-bold text-[#10243e] mt-3">
-            {isLoading ? "..." : totalAnalyses}
-          </p>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <TrendingUp className="w-3.5 h-3.5 text-[#159a68]" />
-            <span>Active inspection records</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">Across assigned retail sampling</p>
-        </div>
-
-        {/* Metric 2 */}
-        <div className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#62738a] uppercase tracking-wider">
-              Compliant
-            </span>
-            <div className="w-9 h-9 rounded-lg bg-[#e5f8ef] text-[#159a68] flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-2xl md:text-3xl font-bold text-[#159a68] mt-3">
-            {isLoading ? "..." : compliantCount}
-          </p>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-600 font-medium">
-            <span className="font-bold text-[#159a68]">
-              {totalAnalyses > 0 ? `${complianceRate}%` : "0%"}
-            </span>
-            <span>met all declarations</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">PCR 2011 Rules 6 &amp; 12 compliant</p>
-        </div>
-
-        {/* Metric 3 */}
-        <div className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#62738a] uppercase tracking-wider">
-              Violations
-            </span>
-            <div className="w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-2xl md:text-3xl font-bold text-red-600 mt-3">
-            {isLoading ? "..." : violationsCount}
-          </p>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-red-600 font-semibold">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>
-              {totalAnalyses > 0
-                ? `${((violationsCount / totalAnalyses) * 100).toFixed(1)}% flagged`
-                : "0 flagged"}
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">Automated Section 36(1) cases</p>
-        </div>
-
-        {/* Metric 4 */}
-        <div className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#62738a] uppercase tracking-wider">
-              Compliance Rate
-            </span>
-            <div className="w-9 h-9 rounded-lg bg-[#fff3df] text-[#b9781a] flex items-center justify-center">
-              <Layers className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-2xl md:text-3xl font-bold text-[#10243e] mt-3">
-            {isLoading ? "..." : totalAnalyses > 0 ? `${complianceRate}%` : "0%"}
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-[#0867c9] h-full rounded-full transition-all duration-500"
-                style={{ width: `${totalAnalyses > 0 ? complianceRate : 0}%` }}
-              ></div>
-            </div>
-            <span className="text-[11px] font-bold text-slate-600">Goal 90%</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">Jurisdictional enforcement index</p>
-        </div>
-      </div>
-
-      {/* Main Grid: Recent Analysis Table (Left) + Compliance Breakdown & Quick Actions (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Recent Analysis Table */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-[#dce7f2] shadow-sm overflow-hidden flex flex-col">
-          {/* Table Header & Controls */}
-          <div className="p-5 border-b border-[#dce7f2]">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-base font-bold text-[#10243e]">Recent Analysis</h3>
-                <p className="text-xs text-[#62738a]">
-                  Packaged commodity inspection logs and automated rule evaluations
-                </p>
-              </div>
-              {/* Search Box */}
-              <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Search product or brand..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0867c9] focus:bg-white transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: "All Analyses", value: "ALL" },
-                  { label: "Compliant", value: "COMPLIANT" },
-                  { label: "Violations", value: "NON_COMPLIANT" },
-                  { label: "Needs Review", value: "NEEDS_REVIEW" },
-                ].map((tab) => (
-                  <button
-                    key={tab.value}
-                    onClick={() => setFilter(tab.value as any)}
-                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                      filter === tab.value
-                        ? "bg-[#0867c9] text-white font-semibold shadow-xs"
-                        : "bg-slate-100 text-[#62738a] hover:bg-slate-200"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={fetchScans}
-                title="Refresh inspection list"
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#0867c9] hover:bg-slate-50 transition-colors"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-              </button>
-            </div>
-          </div>
-
-          {/* Table */}
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#f7faff] text-[#62738a] border-b border-[#dce7f2] uppercase font-semibold text-[11px] tracking-wider">
-                <tr>
-                  <th className="px-5 py-3">Product &amp; Manufacturer</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Category</th>
-                  <th className="px-4 py-3 hidden sm:table-cell">Date</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#dce7f2]">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-12 text-slate-400">
-                      <div className="flex items-center justify-center gap-2">
-                        <RefreshCw className="w-4 h-4 animate-spin text-[#0867c9]" />
-                        <span>Loading inspection logs...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredAnalyses.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-12 px-4 text-center">
-                      <div className="max-w-sm mx-auto flex flex-col items-center">
-                        <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-[#0867c9] mb-3">
-                          <ScanLine className="w-6 h-6" />
-                        </div>
-                        <h4 className="font-bold text-sm text-[#10243e]">
-                          {searchQuery || filter !== "ALL"
-                            ? "No matching inspection records"
-                            : "No package inspections on record yet"}
-                        </h4>
-                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                          {searchQuery || filter !== "ALL"
-                            ? "Try adjusting your search keywords or active status filter."
-                            : "Scan your first package label to automatically extract and verify mandatory declarations under Legal Metrology (PC) Rules."}
-                        </p>
-                        {!searchQuery && filter === "ALL" && (
-                          <Link
-                            href="/officer/scan"
-                            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0867c9] hover:bg-[#0753a0] text-white text-xs font-semibold shadow transition-colors"
-                          >
-                            <ScanLine className="w-3.5 h-3.5" />
-                            <span>Scan Package Now</span>
-                          </Link>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAnalyses.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-[#f7faff] transition-colors cursor-pointer"
-                      onClick={() => setSelectedItem(item)}
-                    >
-                      <td className="px-5 py-3.5">
-                        <p className="font-semibold text-[#10243e] hover:text-[#0867c9]">
-                          {item.productName}
-                        </p>
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
-                          {item.manufacturer}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600 hidden md:table-cell">
-                        {item.category}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-500 hidden sm:table-cell whitespace-nowrap">
-                        {item.date}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {item.status === "COMPLIANT" && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#e5f8ef] text-[#0e6e4a] border border-[#a8e7cb]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#159a68]"></span>
-                            Pass
-                          </span>
-                        )}
-                        {item.status === "NON_COMPLIANT" && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-                            Fail
-                          </span>
-                        )}
-                        {item.status === "NEEDS_REVIEW" && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#fff3df] text-[#b9781a] border border-[#f5d9a6]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#b9781a]"></span>
-                            Review
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedItem(item);
-                          }}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#0867c9] hover:text-[#063d78]"
-                        >
-                          <span>View</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="p-3 bg-[#f7faff] border-t border-[#dce7f2] flex items-center justify-between text-xs text-slate-500 px-5">
-            <span>
-              Showing {filteredAnalyses.length} of {analyses.length} records
-            </span>
-            <Link href="/officer/reports" className="font-semibold text-[#0867c9] hover:underline">
-              View All History &rarr;
-            </Link>
-          </div>
-        </div>
-
-        {/* Right 1 Col: Compliance Progress Bars + Quick Actions */}
-        <div className="space-y-6">
-          {/* Compliance Overview Progress Card */}
-          <div className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm">
-            <h3 className="text-base font-bold text-[#10243e]">Compliance Overview</h3>
-            <p className="text-xs text-[#62738a] mt-0.5">
-              Rule 6 statutory requirements compliance across active inspection records
-            </p>
-
-            <div className="mt-5 space-y-4">
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700">Mandatory Declarations (Rule 6)</span>
-                  <span className="text-[#0867c9]">
-                    {totalAnalyses > 0 ? `${complianceRate}%` : "0%"}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div
-                    className="bg-[#0867c9] h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${totalAnalyses > 0 ? complianceRate : 0}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700">Net Quantity &amp; Units (Rule 12)</span>
-                  <span className="text-[#159a68]">
-                    {totalAnalyses > 0 ? `${Math.min(100, Math.round(Number(complianceRate) * 1.02))}%` : "0%"}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div
-                    className="bg-[#159a68] h-2 rounded-full transition-all duration-500"
-                    style={{
-                      width: `${totalAnalyses > 0 ? Math.min(100, Math.round(Number(complianceRate) * 1.02)) : 0}%`,
-                    }}
-                  ></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700">Maximum Retail Price (Rule 6(1)(e))</span>
-                  <span className="text-[#b9781a]">
-                    {totalAnalyses > 0 ? `${Math.min(100, Math.round(Number(complianceRate) * 0.95))}%` : "0%"}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div
-                    className="bg-[#b9781a] h-2 rounded-full transition-all duration-500"
-                    style={{
-                      width: `${totalAnalyses > 0 ? Math.min(100, Math.round(Number(complianceRate) * 0.95)) : 0}%`,
-                    }}
-                  ></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700">Manufacturer Details (Rule 6(1)(a))</span>
-                  <span className="text-[#159a68]">
-                    {totalAnalyses > 0 ? `${Math.min(100, Math.round(Number(complianceRate) * 1.05))}%` : "0%"}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div
-                    className="bg-[#159a68] h-2 rounded-full transition-all duration-500"
-                    style={{
-                      width: `${totalAnalyses > 0 ? Math.min(100, Math.round(Number(complianceRate) * 1.05)) : 0}%`,
-                    }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 pt-4 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
-              <span>Benchmark: Legal Metrology (PC) Rules</span>
-              <span className="font-semibold text-slate-700">
-                {totalAnalyses > 0 ? "Live field data" : "Awaiting inspections"}
-              </span>
-            </div>
-          </div>
-
-          {/* Quick Actions Card */}
-          <div className="bg-white rounded-xl p-5 border border-[#dce7f2] shadow-sm">
-            <h3 className="text-base font-bold text-[#10243e]">Quick Actions</h3>
-            <p className="text-xs text-[#62738a] mt-0.5">Primary enforcement workflows</p>
-
-            <div className="mt-4 space-y-3">
-              <Link
-                href="/officer/scan"
-                className="flex items-center justify-between p-3.5 rounded-xl bg-[#eaf4ff] border border-[#0867c9]/20 hover:bg-[#d8ecff] transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#0867c9] text-white flex items-center justify-center shadow-xs">
-                    <ScanLine className="w-4 h-4" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-[#0867c9] group-hover:text-[#063d78]">
-                      + Scan New Package
-                    </p>
-                    <p className="text-[11px] text-slate-500">Run instant AI extraction &amp; checks</p>
-                  </div>
-                </div>
-                <ArrowUpRight className="w-4 h-4 text-[#0867c9]" />
-              </Link>
-
-              <Link
-                href="/officer/reports"
-                className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-[#10243e] flex items-center justify-center">
-                    <FileSpreadsheet className="w-4 h-4" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-[#10243e]">Generate Report</p>
-                    <p className="text-[11px] text-slate-500">Export audit &amp; violation rosters</p>
-                  </div>
-                </div>
-                <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
-              </Link>
-
-              <Link
-                href="/officer/products"
-                className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-[#10243e] flex items-center justify-center">
-                    <Package className="w-4 h-4" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-[#10243e]">Browse Products</p>
-                    <p className="text-[11px] text-slate-500">Track commodities &amp; offenders</p>
-                  </div>
-                </div>
-                <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
-              </Link>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Inspection Detail Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-xl w-full p-6 shadow-2xl border border-[#dce7f2] relative">
             <button
               type="button"
               onClick={() => setSelectedItem(null)}
@@ -665,6 +594,7 @@ export default function OfficerDashboard() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
+

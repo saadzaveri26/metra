@@ -19,9 +19,20 @@ import {
   ChevronUp,
   FileSpreadsheet,
   AlertOctagon,
+  Eye,
+  EyeOff,
+  Crosshair,
+  Check,
 } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
 import { API_BASE } from "@/lib/api";
+
+interface NormalizedBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 interface ComplianceField {
   status: "COMPLIANT" | "NON_COMPLIANT" | "NEEDS_REVIEW";
@@ -30,6 +41,9 @@ interface ComplianceField {
   act_section: string;
   findings: string;
   penalty_clause: string;
+  source_block_index?: number | null;
+  bounding_box?: number[] | null;
+  normalized_box?: NormalizedBox | null;
   ai_value: string | null;
   effective_value: string | null;
   is_overridden: boolean;
@@ -40,9 +54,20 @@ interface ComplianceField {
   };
 }
 
+interface OCRBlockItem {
+  block_index: number;
+  text: string;
+  confidence: number;
+  bounding_box?: number[] | null;
+  normalized_box?: NormalizedBox | null;
+}
+
 interface ScanResult {
   id: string;
   status: string;
+  ocr_raw_text?: string;
+  ocr_blocks?: OCRBlockItem[];
+  image_dimensions?: { width: number; height: number };
   compliance_summary: {
     overall_status: "COMPLIANT" | "NON_COMPLIANT" | "NEEDS_REVIEW";
     total_fields_checked: number;
@@ -90,6 +115,54 @@ export default function OfficerScanPage() {
   const [overrideValue, setOverrideValue] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [isSubmittingOverride, setIsSubmittingOverride] = useState(false);
+
+  // Bounding box detection overlay state
+  const [showDetectionBoxes, setShowDetectionBoxes] = useState(true);
+  const [boxFilter, setBoxFilter] = useState<"mandatory" | "all">("mandatory");
+  const [hoveredFieldKey, setHoveredFieldKey] = useState<string | null>(null);
+
+  // Extracted mandatory declarations with normalized bounding boxes
+  const detectedBoxes = scanResult
+    ? Object.entries(scanResult.compliance_results)
+        .filter(([_, data]) => data.normalized_box && data.normalized_box.width > 0)
+        .map(([key, data]) => ({
+          key,
+          label: FIELD_LABELS[key] || key,
+          shortLabel:
+            key === "net_quantity"
+              ? `Net Qty: ${data.effective_value || data.ai_value || ""}`
+              : key === "manufacturer"
+              ? "Manufacturer / Packer"
+              : key === "consumer_care"
+              ? "Consumer Care Helpline"
+              : key === "mrp"
+              ? `MRP: ${data.effective_value || ""}`
+              : key === "country_of_origin"
+              ? `Origin: ${data.effective_value || ""}`
+              : key === "manufacture_date"
+              ? `Mfg Date: ${data.effective_value || ""}`
+              : FIELD_LABELS[key]?.split(". ")[1]?.split(" (")[0] || key,
+          box: data.normalized_box!,
+          status: data.status,
+          findings: data.findings,
+          value: data.effective_value || data.ai_value,
+          blockIndex: data.source_block_index,
+        }))
+    : [];
+
+  // All detected OCR blocks for full text coverage inspection
+  const ocrBoxes = (scanResult?.ocr_blocks || [])
+    .filter((b) => b.normalized_box && b.normalized_box.width > 0)
+    .map((b) => ({
+      key: `ocr-${b.block_index}`,
+      label: `Block #${b.block_index}`,
+      shortLabel: b.text.length > 22 ? b.text.substring(0, 22) + "..." : b.text,
+      box: b.normalized_box!,
+      status: "OCR",
+      text: b.text,
+      confidence: b.confidence,
+      blockIndex: b.block_index,
+    }));
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -289,23 +362,150 @@ export default function OfficerScanPage() {
                 </p>
               </div>
             ) : (
-              <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 group">
-                <img
-                  src={previewUrl}
-                  alt="Label Preview"
-                  className="w-full h-48 object-contain bg-black/40"
-                />
-                <button
-                  onClick={() => {
-                    setFile(null);
-                    setPreviewUrl(null);
-                  }}
-                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+              <div className="space-y-2">
+                {/* Detection Box Controls Bar */}
+                {scanResult && (
+                  <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200 text-xs">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowDetectionBoxes((prev) => !prev)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                          showDetectionBoxes
+                            ? "bg-[#0867c9] text-white shadow-xs"
+                            : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-300"
+                        }`}
+                      >
+                        {showDetectionBoxes ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        <span>{showDetectionBoxes ? "Boxes Visible" : "Boxes Hidden"}</span>
+                      </button>
+
+                      <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>{detectedBoxes.length} Declarations Located</span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setBoxFilter("mandatory")}
+                        className={`px-2 py-0.5 rounded-md text-[10.5px] font-semibold transition-colors cursor-pointer ${
+                          boxFilter === "mandatory"
+                            ? "bg-white text-[#0867c9] shadow-xs border border-slate-200"
+                            : "text-slate-500 hover:text-slate-900"
+                        }`}
+                      >
+                        Mandatory ({detectedBoxes.length})
+                      </button>
+                      {ocrBoxes.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setBoxFilter("all")}
+                          className={`px-2 py-0.5 rounded-md text-[10.5px] font-semibold transition-colors cursor-pointer ${
+                            boxFilter === "all"
+                              ? "bg-white text-[#0867c9] shadow-xs border border-slate-200"
+                              : "text-slate-500 hover:text-slate-900"
+                          }`}
+                        >
+                          All Text ({ocrBoxes.length})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Packaging Label & Bounding Box Overlay Canvas */}
+                <div
+                  id="package-canvas"
+                  className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-950 group shadow-inner"
                 >
-                  <XCircle className="w-4 h-4" />
-                </button>
-                <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/70 text-[10px] text-white backdrop-blur-xs">
-                  {file?.name} ({(file?.size ? file.size / (1024 * 1024) : 0).toFixed(2)} MB)
+                  <div className="relative w-full max-h-[540px] overflow-auto">
+                    <div className="relative w-full inline-block">
+                      <img
+                        src={previewUrl}
+                        alt="Label Preview"
+                        className="w-full h-auto block select-none"
+                      />
+
+                      {/* Bounding Box Overlay */}
+                      {showDetectionBoxes && scanResult && (
+                        <div className="absolute inset-0 pointer-events-none">
+                          {(boxFilter === "mandatory" ? detectedBoxes : ocrBoxes).map((item) => {
+                            const isHovered = hoveredFieldKey === item.key;
+                            const isMandatory = item.status !== "OCR";
+                            const isCompliant = item.status === "COMPLIANT";
+
+                            return (
+                              <div
+                                key={item.key}
+                                style={{
+                                  left: `${item.box.x}%`,
+                                  top: `${item.box.y}%`,
+                                  width: `${item.box.width}%`,
+                                  height: `${Math.max(item.box.height, 2.8)}%`,
+                                }}
+                                onClick={() => {
+                                  if (isMandatory) {
+                                    const targetCard = document.getElementById(`field-card-${item.key}`);
+                                    if (targetCard) {
+                                      targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    }
+                                  }
+                                }}
+                                onMouseEnter={() => setHoveredFieldKey(item.key)}
+                                onMouseLeave={() => setHoveredFieldKey(null)}
+                                className={`absolute pointer-events-auto cursor-pointer rounded transition-all duration-150 ${
+                                  isHovered
+                                    ? "ring-4 ring-sky-400 bg-sky-400/30 z-30 shadow-xl scale-[1.01]"
+                                    : isMandatory
+                                    ? isCompliant
+                                      ? "border-2 border-emerald-400 bg-emerald-500/20 hover:bg-emerald-500/35 z-20 shadow-sm"
+                                      : "border-2 border-amber-400 bg-amber-500/25 hover:bg-amber-500/40 z-20 shadow-sm"
+                                    : "border border-sky-400/70 bg-sky-400/10 hover:bg-sky-400/25 z-10"
+                                }`}
+                              >
+                                {/* Floating Pill Badge */}
+                                <div
+                                  className={`absolute -top-5 left-0 px-2 py-0.5 rounded text-[9.5px] font-bold tracking-tight shadow-md flex items-center gap-1.5 whitespace-nowrap pointer-events-none transition-all ${
+                                    isHovered
+                                      ? "bg-[#0867c9] text-white z-40 scale-105"
+                                      : isMandatory
+                                      ? isCompliant
+                                        ? "bg-emerald-700 text-white border border-emerald-600"
+                                        : "bg-amber-600 text-white border border-amber-500"
+                                      : "bg-slate-900/90 text-sky-200 border border-slate-700"
+                                  }`}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                  <span>{item.shortLabel}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setFile(null);
+                      setPreviewUrl(null);
+                      setScanResult(null);
+                    }}
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors z-40 cursor-pointer"
+                    title="Remove and upload new image"
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </button>
+
+                  <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded bg-black/75 text-[10.5px] text-white backdrop-blur-xs z-40 flex items-center gap-2">
+                    <span>{file?.name} ({(file?.size ? file.size / (1024 * 1024) : 0).toFixed(2)} MB)</span>
+                    {scanResult && (
+                      <span className="text-emerald-400 font-semibold">• Detection Map Active</span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -514,35 +714,65 @@ export default function OfficerScanPage() {
                 </div>
 
                 <div className="divide-y divide-[#dce7f2]">
-                  {Object.entries(scanResult.compliance_results).map(([fieldKey, fieldData]) => (
-                    <div key={fieldKey} className="p-4 hover:bg-[#fcfdff] transition-colors">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-[#10243e]">
-                              {FIELD_LABELS[fieldKey] || fieldKey}
-                            </span>
-                            {fieldData.status === "COMPLIANT" && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e5f8ef] text-[#0e6e4a] border border-[#a8e7cb]">
-                                Compliant
+                  {Object.entries(scanResult.compliance_results).map(([fieldKey, fieldData]) => {
+                    const isHovered = hoveredFieldKey === fieldKey;
+                    return (
+                      <div
+                        key={fieldKey}
+                        id={`field-card-${fieldKey}`}
+                        onMouseEnter={() => setHoveredFieldKey(fieldKey)}
+                        onMouseLeave={() => setHoveredFieldKey(null)}
+                        className={`p-4 transition-all duration-150 ${
+                          isHovered ? "bg-sky-50/70 ring-2 ring-[#0867c9]" : "hover:bg-[#fcfdff]"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-[#10243e]">
+                                {FIELD_LABELS[fieldKey] || fieldKey}
                               </span>
-                            )}
-                            {fieldData.status === "NON_COMPLIANT" && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
-                                Violation
-                              </span>
-                            )}
-                            {fieldData.status === "NEEDS_REVIEW" && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#fff3df] text-[#b9781a] border border-[#f5d9a6]">
-                                Needs Review
-                              </span>
-                            )}
-                            {fieldData.is_overridden && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#eaf4ff] text-[#0867c9] border border-[#b8daff]">
-                                Officer Override
-                              </span>
-                            )}
-                          </div>
+                              {fieldData.status === "COMPLIANT" && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e5f8ef] text-[#0e6e4a] border border-[#a8e7cb]">
+                                  Compliant
+                                </span>
+                              )}
+                              {fieldData.status === "NON_COMPLIANT" && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
+                                  Violation
+                                </span>
+                              )}
+                              {fieldData.status === "NEEDS_REVIEW" && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#fff3df] text-[#b9781a] border border-[#f5d9a6]">
+                                  Needs Review
+                                </span>
+                              )}
+                              {fieldData.is_overridden && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#eaf4ff] text-[#0867c9] border border-[#b8daff]">
+                                  Officer Override
+                                </span>
+                              )}
+                              {fieldData.normalized_box && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setHoveredFieldKey(fieldKey);
+                                    const canvas = document.getElementById("package-canvas");
+                                    if (canvas) canvas.scrollIntoView({ behavior: "smooth", block: "center" });
+                                  }}
+                                  className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#eaf4ff] text-[#0867c9] border border-[#b8daff] hover:bg-[#d8ebff] transition-colors flex items-center gap-1 cursor-pointer"
+                                  title="View detected bounding box on packaging label"
+                                >
+                                  <Crosshair className="w-3 h-3 text-[#0867c9]" />
+                                  <span>
+                                    Detected on Package{" "}
+                                    {fieldData.source_block_index !== undefined && fieldData.source_block_index !== null
+                                      ? `(Region #${fieldData.source_block_index})`
+                                      : ""}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
 
                           {/* Extracted Values */}
                           <div className="mt-2 text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
@@ -584,8 +814,9 @@ export default function OfficerScanPage() {
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
               </div>
             </div>
           )}

@@ -5,6 +5,7 @@ import { useSignIn, useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { ArrowRight, LogOut } from "lucide-react";
 
 type RoleKey = "consumer" | "vendor" | "inspector" | "officer" | "hq" | "headquarters";
 
@@ -98,6 +99,58 @@ export default function SignInPage() {
   const [inferredRole, setInferredRole] = useState("consumer");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [switchAccount, setSwitchAccount] = useState(false);
+
+  const activeUserRole = (
+    (user?.publicMetadata as any)?.role ||
+    (user?.unsafeMetadata as any)?.role ||
+    "consumer"
+  ).toLowerCase();
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case "officer":
+      case "inspector":
+        return {
+          label: "Field Inspector",
+          portalName: "Officer Dashboard",
+          bg: "bg-[#faf3e4]",
+          text: "text-[#8a5d00]",
+          border: "border-[#e6d8b8]",
+          destination: "/officer",
+        };
+      case "vendor":
+        return {
+          label: "Enterprise Vendor",
+          portalName: "Vendor Portal",
+          bg: "bg-[#fff3df]",
+          text: "text-[#b9781a]",
+          border: "border-[#f7dcb0]",
+          destination: "/vendor",
+        };
+      case "headquarters":
+      case "hq":
+        return {
+          label: "HQ Directorate",
+          portalName: "HQ Directorate",
+          bg: "bg-[#f5eeff]",
+          text: "text-[#6b21a8]",
+          border: "border-[#d8b4fe]",
+          destination: "/headquarters",
+        };
+      default:
+        return {
+          label: "Citizen Consumer",
+          portalName: "Consumer Portal",
+          bg: "bg-[#e5f8ef]",
+          text: "text-[#159a68]",
+          border: "border-[#b8ebd5]",
+          destination: "/consumer",
+        };
+    }
+  };
+
+  const activeBadge = getRoleBadge(activeUserRole);
 
   const handleIdentifierSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,49 +272,108 @@ export default function SignInPage() {
         {/* Right authentication form container */}
         <div className="lg:col-span-6 flex items-center justify-center p-6 sm:p-12">
           <div className="w-full max-w-[460px] bg-white border border-[#dce7f2] rounded-[18px] shadow-[0_18px_50px_rgba(21,62,105,0.10)] p-8 sm:p-10">
-            {isSignedIn && !error && (
-              <div className="mb-6 p-4 bg-[#eaf4ff] border border-[#b8daff] rounded-xl text-[#0867c9] text-[13px]">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <span className="font-bold">Already signed in:</span>{" "}
-                    <div className="font-mono text-[12px] text-[#10243e] mt-0.5">
-                      {user?.primaryEmailAddress?.emailAddress}
-                    </div>
+            {isSignedIn && !switchAccount ? (
+              /* ACTIVE SESSION RESUME VIEW (OPTION 1) */
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[11px] font-extrabold text-[#62738a] tracking-wider uppercase">
+                      Active Session Detected
+                    </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await signOut({ redirectUrl: "/sign-in" });
-                      setError(null);
-                    }}
-                    className="px-2.5 py-1 bg-white border border-[#b8daff] text-[#0867c9] font-bold text-[11px] rounded hover:bg-[#f0f7ff] transition-colors"
-                  >
-                    Sign out
-                  </button>
+                  <h1 className="text-2xl font-bold tracking-tight text-[#10243e]">
+                    Welcome back{user?.firstName ? `, ${user.firstName}` : ""}
+                  </h1>
+                  <p className="text-[13.5px] text-[#62738a] mt-1">
+                    You are already authenticated with your official METRA credentials.
+                  </p>
                 </div>
-                <div className="mt-3 pt-2 border-t border-[#d5e8fb] flex items-center justify-between">
-                  <span className="text-[12px] text-[#43566d]">Want to switch accounts?</span>
+
+                {/* Profile Card Tile */}
+                <div className="p-4 rounded-xl bg-[#f7faff] border border-[#dce7f2] flex items-center gap-3.5 shadow-xs">
+                  {user?.imageUrl ? (
+                    <img
+                      src={user.imageUrl}
+                      alt="Avatar"
+                      className="w-12 h-12 rounded-full object-cover border border-[#b9d5f2] shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-[#0867c9] text-white font-bold text-base flex items-center justify-center shrink-0 shadow-sm">
+                      {(user?.firstName?.[0] || user?.primaryEmailAddress?.emailAddress?.[0] || "U").toUpperCase()}
+                    </div>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-[14px] text-[#10243e] truncate">
+                        {user?.fullName || user?.firstName || "Verified User"}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${activeBadge.bg} ${activeBadge.text} ${activeBadge.border}`}
+                      >
+                        {activeBadge.label}
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-[#62738a] truncate mt-0.5 font-mono">
+                      {user?.primaryEmailAddress?.emailAddress}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Primary Action Button */}
+                <div className="space-y-3 pt-1">
                   <button
                     type="button"
                     onClick={() => {
-                      const role = (user?.publicMetadata as any)?.role || "consumer";
-                      const dest =
-                        role === "vendor"
-                          ? "/vendor"
-                          : role === "officer" || role === "inspector"
-                          ? "/officer"
-                          : role === "headquarters" || role === "hq"
-                          ? "/headquarters"
-                          : "/consumer";
-                      window.location.href = dest;
+                      window.location.href = activeBadge.destination;
                     }}
-                    className="text-[12px] font-bold text-[#0867c9] hover:underline"
+                    className="w-full py-3.5 px-4 bg-[#0867c9] hover:bg-[#063d78] text-white font-bold text-[14px] rounded-[10px] shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
-                    Go to Dashboard &rarr;
+                    <span>Continue to {activeBadge.portalName}</span>
+                    <ArrowRight className="w-4 h-4" />
                   </button>
+
+                  <div className="flex items-center justify-between text-[12.5px] pt-2 px-1">
+                    <button
+                      type="button"
+                      onClick={() => setSwitchAccount(true)}
+                      className="text-[#62738a] hover:text-[#0867c9] font-medium transition-colors cursor-pointer"
+                    >
+                      Sign in to another account
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await signOut({ redirectUrl: "/sign-in" });
+                        setSwitchAccount(false);
+                        setError(null);
+                      }}
+                      className="text-[#c84c54] hover:text-red-700 font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign out</span>
+                    </button>
+                  </div>
                 </div>
               </div>
-            )}
+            ) : (
+              <>
+                {isSignedIn && switchAccount && (
+                  <div className="mb-5 pb-3 border-b border-[#e2edf8] flex items-center justify-between text-[12px]">
+                    <span className="text-[#62738a] truncate mr-2">
+                      Active: <strong className="text-[#10243e] font-semibold">{user?.primaryEmailAddress?.emailAddress}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSwitchAccount(false)}
+                      className="text-[#0867c9] hover:underline font-bold shrink-0 cursor-pointer"
+                    >
+                      Back to session &rarr;
+                    </button>
+                  </div>
+                )}
 
             {error && (
               <div className="mb-6 p-3.5 bg-[#fde9ea] border border-[#f7c5c7] rounded-lg text-[#c84c54] text-[13px] font-medium leading-snug">
@@ -432,8 +544,10 @@ export default function SignInPage() {
                 </div>
               </div>
             )}
-          </div>
-        </div>
+          </>
+        )}
+      </div>
+    </div>
       </main>
     </div>
   );

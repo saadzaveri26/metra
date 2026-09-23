@@ -38,7 +38,7 @@ export default function ConsumerDashboard() {
   ];
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-12">
+    <main id="main-content" className="space-y-8 max-w-6xl mx-auto pb-12">
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-[#0a2038] via-[#0d2a4d] to-[#0867c9] text-white rounded-2xl p-6 sm:p-8 shadow-md border border-[#1e4e85]">
         <div className="max-w-2xl space-y-3">
@@ -98,7 +98,7 @@ export default function ConsumerDashboard() {
             <Megaphone className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-200/80 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] font-semibold tracking-wide text-amber-800 bg-amber-200/80 px-1.5 py-0.5 rounded">
               Active Warning
             </span>
             <p className="text-xs font-bold text-[#10243e] mt-0.5">
@@ -181,7 +181,7 @@ export default function ConsumerDashboard() {
       <div className="bg-white rounded-xl p-6 border border-[#dce7f2] shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold text-[#10243e] uppercase tracking-wider">
+            <h2 className="text-sm font-semibold text-[#10243e] tracking-wide">
               Your Statutory Rights Under Legal Metrology (PCR 2011)
             </h2>
             <p className="text-xs text-slate-500">Every consumer in India is legally protected against deceptive pre-packaging</p>
@@ -196,7 +196,7 @@ export default function ConsumerDashboard() {
             <div className="w-7 h-7 rounded-lg bg-[#eaf4ff] text-[#0867c9] flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
             </div>
-            <h4 className="font-bold text-xs text-[#10243e]">No Surcharges Above MRP</h4>
+            <h4 className="font-semibold text-xs text-[#10243e]">No surcharges above MRP</h4>
             <p className="text-[11px] text-slate-500 leading-relaxed">
               Section 36 prohibits retailers from charging higher than the printed MRP. Double stickering is illegal.
             </p>
@@ -206,7 +206,7 @@ export default function ConsumerDashboard() {
             <div className="w-7 h-7 rounded-lg bg-[#e8f8f0] text-[#159a68] flex items-center justify-center">
               <Scale className="w-4 h-4" />
             </div>
-            <h4 className="font-bold text-xs text-[#10243e]">Mandatory Unit Sale Price</h4>
+            <h4 className="font-semibold text-xs text-[#10243e]">Mandatory unit sale price</h4>
             <p className="text-[11px] text-slate-500 leading-relaxed">
               Rule 6(11) mandates price per gram, ml, or piece to allow fair price comparison across brand pack sizes.
             </p>
@@ -216,7 +216,7 @@ export default function ConsumerDashboard() {
             <div className="w-7 h-7 rounded-lg bg-[#fef5e7] text-[#e69b00] flex items-center justify-center">
               <Calendar className="w-4 h-4" />
             </div>
-            <h4 className="font-bold text-xs text-[#10243e]">Clear Packaging &amp; Expiry</h4>
+            <h4 className="font-semibold text-xs text-[#10243e]">Clear packaging and expiry</h4>
             <p className="text-[11px] text-slate-500 leading-relaxed">
               Rule 6(1)(d) mandates month &amp; year of manufacture and expiry. Smudged or missing dates violate the law.
             </p>
@@ -226,13 +226,13 @@ export default function ConsumerDashboard() {
             <div className="w-7 h-7 rounded-lg bg-[#f4effe] text-[#7c3aed] flex items-center justify-center">
               <Info className="w-4 h-4" />
             </div>
-            <h4 className="font-bold text-xs text-[#10243e]">Mandatory Grievance Helpline</h4>
+            <h4 className="font-semibold text-xs text-[#10243e]">Mandatory grievance helpline</h4>
             <p className="text-[11px] text-slate-500 leading-relaxed">
               Rule 6(1)(da) requires every manufacturer to state telephone, email, and postal address for customer complaints.
             </p>
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

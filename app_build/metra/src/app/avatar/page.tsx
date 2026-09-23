@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { auth } from "@clerk/nextjs/server";
 import AvatarVoiceController from "@/components/avatar/AvatarVoiceController";
 import {
   Sparkles,
@@ -17,8 +18,33 @@ export const metadata = {
   description: "Local-only state-machine animated Avatar with speech boundary lip-sync for Legal Metrology guidance.",
 };
 
-export default function AvatarPage() {
+export default async function AvatarPage() {
   const isAvatarEnabled = process.env.NEXT_PUBLIC_ENABLE_AVATAR === "true";
+  const { sessionClaims, userId } = await auth();
+  const role = (
+    (sessionClaims as any)?.role ||
+    (sessionClaims?.metadata as any)?.role ||
+    (sessionClaims?.publicMetadata as any)?.role ||
+    "consumer"
+  ).toLowerCase();
+
+  const dashboardHref =
+    role === "officer" || role === "inspector"
+      ? "/officer"
+      : role === "vendor"
+      ? "/vendor"
+      : role === "headquarters" || role === "hq"
+      ? "/headquarters"
+      : "/consumer";
+
+  const roleTitle =
+    role === "officer" || role === "inspector"
+      ? "Officer Dashboard"
+      : role === "vendor"
+      ? "Vendor Portal"
+      : role === "headquarters" || role === "hq"
+      ? "HQ Directorate"
+      : "Consumer Portal";
 
   return (
     <div className="min-h-screen bg-[#070d18] text-slate-100 flex flex-col">
@@ -26,7 +52,7 @@ export default function AvatarPage() {
       <header className="border-b border-slate-800/80 bg-slate-950/80 px-6 py-4 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <Link
-            href="/"
+            href={dashboardHref}
             className="flex items-center gap-2.5 text-slate-300 hover:text-white transition"
           >
             <div className="w-8 h-8 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center border border-amber-400/30">
@@ -56,11 +82,11 @@ export default function AvatarPage() {
             <span>Ask METRA</span>
           </Link>
           <Link
-            href="/"
-            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1 transition"
+            href={dashboardHref}
+            className="px-3.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 transition font-medium"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Return</span>
+            <span>Return to {roleTitle}</span>
           </Link>
         </div>
       </header>
@@ -106,10 +132,10 @@ export default function AvatarPage() {
                 Go to Ask METRA
               </Link>
               <Link
-                href="/"
+                href={dashboardHref}
                 className="w-full sm:w-auto px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs transition"
               >
-                Return to Home
+                Return to {roleTitle}
               </Link>
             </div>
           </div>
