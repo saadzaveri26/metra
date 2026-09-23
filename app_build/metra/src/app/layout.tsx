@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit, Noto_Sans } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import MetraChatWidget from "@/components/assistant/MetraChatWidget";
 
 /**
  * Primary display font: Outfit — modern geometric sans with character.
@@ -55,6 +56,7 @@ export default function RootLayout({
             Skip to content
           </a>
           {children}
+          <MetraChatWidget />
         </body>
       </html>
     </ClerkProvider>
